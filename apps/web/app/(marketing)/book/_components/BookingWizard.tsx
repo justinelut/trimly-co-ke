@@ -54,8 +54,10 @@ export function BookingWizard() {
   const router = useRouter();
   const params = useSearchParams();
 
-  // Read step from URL on mount, default to "city".
-  const initialStep = (params.get("step") as StepKey) ?? "city";
+  // Read step from URL on mount, default to "city". `useSearchParams()`
+  // can return null on the first render of a dynamic page; treat that as
+  // "no step" rather than letting the call crash.
+  const initialStep = (params?.get("step") as StepKey | null) ?? "city";
   const [step, setStep] = useState<StepKey>(
     STEP_ORDER.includes(initialStep) ? initialStep : "city"
   );
@@ -72,7 +74,7 @@ export function BookingWizard() {
 
   // Keep URL in sync with the step (no scroll).
   useEffect(() => {
-    const next = new URLSearchParams(params.toString());
+    const next = new URLSearchParams(params?.toString() ?? "");
     next.set("step", step);
     router.replace(`/book?${next.toString()}`, { scroll: false });
     // params is intentionally omitted from deps — we drive URL from step.

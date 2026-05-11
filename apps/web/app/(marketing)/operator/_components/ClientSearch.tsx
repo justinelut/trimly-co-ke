@@ -16,7 +16,7 @@ export function ClientSearch({ initial }: { initial?: string }) {
   // Debounce — push to URL 300ms after the last keystroke
   useEffect(() => {
     const id = setTimeout(() => {
-      const next = new URLSearchParams(params.toString());
+      const next = new URLSearchParams(params?.toString() ?? "");
       if (value.trim()) next.set("q", value.trim());
       else next.delete("q");
       router.replace(`/operator/clients?${next.toString()}`, { scroll: false });
