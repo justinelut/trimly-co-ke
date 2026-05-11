@@ -1,0 +1,71 @@
+# =============================================================================
+# Prisma migration Job — MANUAL trigger only.
+#
+# The Trimly build brief AND AGENTS.md both state that database migrations
+# must NOT run in CI/CD. The operator runs them by hand after a schema change.
+#
+# Two ways to trigger:
+#
+#   1. One-shot Job (creates a uniquely-named copy of this Job):
+#        kubectl create job --from=cronjob/trimly-co-ke-migrate \
+#          manual-migrate-$(date +%s) \
+#          --namespace=trimly-co-ke
+#      (only works if you re-cast this as a CronJob with suspend=true)
+#
+#   2. Apply this manifest, deleting the previous Job first:
+#        kubectl delete job trimly-co-ke-migrate -n trimly-co-ke --ignore-not-found
+#        kubectl apply -f k8s/migrate-job.yaml
+#        kubectl logs -f job/trimly-co-ke-migrate -n trimly-co-ke
+#
+# The image MUST be the same as the one running in production — Prisma needs
+# the schema files baked into the image and the same client version.
+# =============================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: trimly-co-ke-migrate
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: migrate
+spec:
+  backoffLimit: 0                  # fail fast — migrations are not retryable
+  ttlSecondsAfterFinished: 604800  # keep logs for a week
+  template:
+    metadata:
+      labels:
+        app: trimly-co-ke
+        component: migrate
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      containers:
+        - name: migrate
+          # IMAGE MUST MATCH THE DEPLOYMENT — keep this in sync, or pass an
+          # explicit tag via:
+          #   kubectl set image job/trimly-co-ke-migrate \
+          #     migrate=ghcr.io/<owner>/trimly-co-ke:<sha> -n trimly-co-ke
+          image: ghcr.io/OWNER/trimly-co-ke:latest
+          imagePullPolicy: Always
+          # Override the default Next.js entrypoint and run Prisma directly.
+          # `prisma migrate deploy` applies any committed, generated migrations
+          # without prompting. It does NOT generate new migrations.
+          command:
+            - node
+            - node_modules/prisma/build/index.js
+            - migrate
+            - deploy
+            - --schema=packages/prisma/schema.prisma
+          envFrom:
+            - configMapRef:
+                name: trimly-co-ke-config
+            - secretRef:
+                name: trimly-co-ke-secret
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

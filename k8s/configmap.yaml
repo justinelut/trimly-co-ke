@@ -1,0 +1,43 @@
+# Non-secret runtime configuration for the Trimly Next.js app.
+# Secret values live in trimly-co-ke-secret (see secret.yaml).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trimly-co-ke-config
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+data:
+  # ---- App ----
+  NODE_ENV: "production"
+  PORT: "3000"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+  # ---- Public URLs ----
+  NEXTAUTH_URL: "https://trimly.co.ke"
+  NEXT_PUBLIC_SERVER_URL: "https://trimly.co.ke"
+  NEXT_PUBLIC_SITE_URL: "https://trimly.co.ke"
+
+  # ---- Database host (password lives in the Secret) ----
+  POSTGRES_HOST: "trimly-co-ke-db"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "trimly-co-ke_db"
+  POSTGRES_USER: "trimly-co-ke"
+
+  # ---- MinIO (S3-compatible) endpoints ----
+  # Internal: app -> minio (cluster DNS)
+  STORAGE_ENDPOINT: "http://trimly-co-ke-minio:9000"
+  # Public: browser -> minio via Ingress (for <img src> URLs of uploaded assets)
+  STORAGE_PUBLIC_URL: "https://storage.trimly.co.ke"
+  STORAGE_BUCKET: "trimly-co-ke-uploads"
+  STORAGE_REGION: "us-east-1"
+  STORAGE_FORCE_PATH_STYLE: "true"
+
+  # ---- Region / locale ----
+  APP_REGION: "KE"
+  APP_TIMEZONE: "Africa/Nairobi"
+  APP_CURRENCY: "KES"
+
+  # ---- Public Paystack key (intentionally public; safe to expose to the browser) ----
+  # The secret PAYSTACK_SECRET_KEY stays in trimly-co-ke-secret.
+  NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: "pk_live_REPLACE_ME"

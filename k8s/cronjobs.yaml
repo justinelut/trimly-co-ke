@@ -1,0 +1,178 @@
+# =============================================================================
+# Trimly scheduled jobs — replaces Vercel Cron from the build brief.
+#
+# Each CronJob runs a small curlimages/curl pod that hits an internal endpoint
+# on the Next.js service, authenticated with a shared bearer token from the
+# Secret (CRON_SECRET). The Next.js app must implement:
+#   POST /api/cron/mpesa-renewal
+#   POST /api/cron/payment-reconciliation
+# and reject any request whose Authorization header doesn't match.
+#
+# Schedules use Africa/Nairobi (EAT, UTC+3). K8s CronJobs use cluster-local
+# time by default; the `timeZone` field (K8s 1.27+) sets it explicitly.
+# =============================================================================
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: trimly-co-ke-mpesa-renewal
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: cron
+spec:
+  schedule: "0 8 * * *"           # 08:00 daily
+  timeZone: "Africa/Nairobi"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: trimly-co-ke
+            component: cron
+            job: mpesa-renewal
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: trigger
+              image: curlimages/curl:8.10.1
+              env:
+                - name: CRON_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: trimly-co-ke-secret
+                      key: CRON_SECRET
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  curl --fail --show-error --silent --max-time 290 \
+                       --request POST \
+                       --header "Authorization: Bearer ${CRON_SECRET}" \
+                       --header "Content-Type: application/json" \
+                       --data '{"source":"k8s-cronjob"}' \
+                       http://trimly-co-ke-service.trimly-co-ke.svc.cluster.local/api/cron/mpesa-renewal
+              resources:
+                requests:
+                  cpu: "20m"
+                  memory: "32Mi"
+                limits:
+                  cpu: "100m"
+                  memory: "64Mi"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: trimly-co-ke-payment-reconciliation
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: cron
+spec:
+  schedule: "*/5 * * * *"         # every 5 minutes
+  timeZone: "Africa/Nairobi"
+  concurrencyPolicy: Forbid       # never overlap with itself
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 120
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app: trimly-co-ke
+            component: cron
+            job: payment-reconciliation
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: trigger
+              image: curlimages/curl:8.10.1
+              env:
+                - name: CRON_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: trimly-co-ke-secret
+                      key: CRON_SECRET
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  curl --fail --show-error --silent --max-time 60 \
+                       --request POST \
+                       --header "Authorization: Bearer ${CRON_SECRET}" \
+                       --header "Content-Type: application/json" \
+                       --data '{"source":"k8s-cronjob"}' \
+                       http://trimly-co-ke-service.trimly-co-ke.svc.cluster.local/api/cron/payment-reconciliation
+              resources:
+                requests:
+                  cpu: "20m"
+                  memory: "32Mi"
+                limits:
+                  cpu: "100m"
+                  memory: "64Mi"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: trimly-co-ke-arrival-reminders
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: cron
+spec:
+  schedule: "*/5 * * * *"         # every 5 minutes
+  timeZone: "Africa/Nairobi"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 120
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 3600
+      template:
+        metadata:
+          labels:
+            app: trimly-co-ke
+            component: cron
+            job: arrival-reminders
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: trigger
+              image: curlimages/curl:8.10.1
+              env:
+                - name: CRON_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: trimly-co-ke-secret
+                      key: CRON_SECRET
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  curl --fail --show-error --silent --max-time 60 \
+                       --request POST \
+                       --header "Authorization: Bearer ${CRON_SECRET}" \
+                       --header "Content-Type: application/json" \
+                       --data '{"source":"k8s-cronjob"}' \
+                       http://trimly-co-ke-service.trimly-co-ke.svc.cluster.local/api/cron/arrival-reminders
+              resources:
+                requests:
+                  cpu: "20m"
+                  memory: "32Mi"
+                limits:
+                  cpu: "100m"
+                  memory: "64Mi"

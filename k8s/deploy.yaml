@@ -1,0 +1,149 @@
+# =============================================================================
+# Trimly Next.js app — Deployment + Service + Ingress
+# - Image pulled from ghcr.io (built by GitHub Actions)
+# - Public URL: https://trimly.co.ke (Traefik + Let's Encrypt)
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trimly-co-ke-deployment
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: web
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: trimly-co-ke
+      component: web
+  template:
+    metadata:
+      labels:
+        app: trimly-co-ke
+        component: web
+    spec:
+      # Required only if the GHCR package is private. Drop this block if the
+      # package visibility is set to public on GitHub.
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      containers:
+        - name: web
+          # Image tag is overwritten on every deploy by GitHub Actions:
+          #   kubectl set image deployment/trimly-co-ke-deployment web=ghcr.io/<owner>/trimly-co-ke:<sha>
+          image: ghcr.io/OWNER/trimly-co-ke:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: trimly-co-ke-config
+            - secretRef:
+                name: trimly-co-ke-secret
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "768Mi"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            periodSeconds: 5
+            failureThreshold: 24       # up to 2 min for cold start
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trimly-co-ke-service
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: web
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+  selector:
+    app: trimly-co-ke
+    component: web
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: trimly-co-ke-ingress
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: web
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls.certresolver: le
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - trimly.co.ke
+        - www.trimly.co.ke
+      secretName: trimly-co-ke-tls
+  rules:
+    - host: trimly.co.ke
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: trimly-co-ke-service
+                port:
+                  number: 80
+    - host: www.trimly.co.ke
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: trimly-co-ke-service
+                port:
+                  number: 80
+---
+# Redirect www -> apex (optional but standard).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: trimly-co-ke-www-redirect
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+spec:
+  redirectRegex:
+    regex: "^https?://www\\.trimly\\.co\\.ke/(.*)"
+    replacement: "https://trimly.co.ke/${1}"
+    permanent: true

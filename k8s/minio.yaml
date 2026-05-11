@@ -1,0 +1,164 @@
+# =============================================================================
+# MinIO (S3-compatible object storage) for Trimly
+# - StatefulSet with persistent volume
+# - Internal ClusterIP service for the app:  trimly-co-ke-minio:9000  (S3 API)
+#                                            trimly-co-ke-minio:9001  (Console)
+# - Public Ingress for browser access to uploaded assets:
+#     https://storage.trimly.co.ke/<bucket>/<key>
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: trimly-co-ke-minio
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: minio
+spec:
+  type: ClusterIP
+  ports:
+    - name: s3
+      port: 9000
+      targetPort: 9000
+    - name: console
+      port: 9001
+      targetPort: 9001
+  selector:
+    app: trimly-co-ke
+    component: minio
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: trimly-co-ke-minio
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: minio
+spec:
+  serviceName: trimly-co-ke-minio
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trimly-co-ke
+      component: minio
+  template:
+    metadata:
+      labels:
+        app: trimly-co-ke
+        component: minio
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: minio
+          image: quay.io/minio/minio:RELEASE.2024-11-07T00-52-20Z
+          imagePullPolicy: IfNotPresent
+          args:
+            - server
+            - /data
+            - --console-address
+            - ":9001"
+          ports:
+            - name: s3
+              containerPort: 9000
+            - name: console
+              containerPort: 9001
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: trimly-co-ke-secret
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: trimly-co-ke-secret
+                  key: MINIO_ROOT_PASSWORD
+            # Tells MinIO clients (and presigned URLs) what hostname to use
+            # when generating publicly-reachable URLs for uploaded assets.
+            - name: MINIO_SERVER_URL
+              value: "https://storage.trimly.co.ke"
+            - name: MINIO_BROWSER_REDIRECT_URL
+              value: "https://storage.trimly.co.ke/console"
+          volumeMounts:
+            - name: minio-data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+            initialDelaySeconds: 30
+            periodSeconds: 20
+  volumeClaimTemplates:
+    - metadata:
+        name: minio-data
+        labels:
+          app: trimly-co-ke
+          component: minio
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
+---
+# Public Ingress — exposes the S3 API on storage.trimly.co.ke so browsers
+# can fetch uploaded files directly (Trimly stores OG images and user-
+# uploaded photos here). The MinIO console stays internal-only by default;
+# enable a separate Ingress if you want web admin access.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: trimly-co-ke-minio-ingress
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: minio
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls.certresolver: le
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    # MinIO uploads can be large — bump the request body size.
+    traefik.ingress.kubernetes.io/router.middlewares: trimly-co-ke-minio-bodylimit@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - storage.trimly.co.ke
+      secretName: trimly-co-ke-storage-tls
+  rules:
+    - host: storage.trimly.co.ke
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: trimly-co-ke-minio
+                port:
+                  number: 9000
+---
+# Traefik middleware to raise the body size limit for large uploads (50 MB).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: trimly-co-ke-minio-bodylimit
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: minio
+spec:
+  buffering:
+    maxRequestBodyBytes: 52428800   # 50 MiB
+    memRequestBodyBytes: 2097152    # 2 MiB

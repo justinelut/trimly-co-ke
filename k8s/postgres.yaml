@@ -1,0 +1,115 @@
+# =============================================================================
+# PostgreSQL 16 for Trimly
+# - StatefulSet with persistent volume
+# - ClusterIP service (NEVER exposed publicly)
+# - Reachable inside the cluster as: trimly-co-ke-db:5432
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: trimly-co-ke-db
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: postgres
+spec:
+  type: ClusterIP
+  clusterIP: None              # headless service — required for StatefulSet stable DNS
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+  selector:
+    app: trimly-co-ke
+    component: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: trimly-co-ke-db
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+    component: postgres
+spec:
+  serviceName: trimly-co-ke-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trimly-co-ke
+      component: postgres
+  template:
+    metadata:
+      labels:
+        app: trimly-co-ke
+        component: postgres
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: trimly-co-ke-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: trimly-co-ke-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: trimly-co-ke-secret
+                  key: POSTGRES_PASSWORD
+            # PGDATA must live in a subdir of the mount so postgres can chown it.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB -h 127.0.0.1"
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB -h 127.0.0.1"
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+        labels:
+          app: trimly-co-ke
+          component: postgres
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+        # storageClassName intentionally omitted -- K3s default (local-path) will be used.
