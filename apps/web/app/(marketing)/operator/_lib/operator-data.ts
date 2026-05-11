@@ -306,6 +306,7 @@ export async function fetchAvailabilityStrip(): Promise<AvailabilityDay[]> {
     prisma.trimlyBooking.groupBy({
       by: ["scheduledFor"],
       _count: { _all: true },
+      orderBy: { scheduledFor: "asc" },
       where: {
         scheduledFor: { gte: start, lt: end },
         bookingStatus: { in: ["confirmed", "in_progress"] },
