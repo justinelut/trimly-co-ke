@@ -121,7 +121,7 @@ jobs:
           provenance: false        # smaller manifest, faster pull on K3s
 
   # ---------------------------------------------------------------------------
-  # 2. Deploy to K3s via SSH
+  # 2. Deploy to K3s via SSH (appleboy actions — handle keepalive internally)
   # ---------------------------------------------------------------------------
   deploy:
     name: Deploy to K3s
@@ -133,53 +133,63 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.SERVER_IP }}" >> ~/.ssh/known_hosts
+      - name: Create target directory on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            sudo mkdir -p /opt/trimly-co-ke/k8s
+            sudo chown -R ubuntu:ubuntu /opt/trimly-co-ke
 
-      - name: Copy manifests to server
-        run: |
-          ssh -i ~/.ssh/id_ed25519 ubuntu@${{ secrets.SERVER_IP }} \
-            "mkdir -p ~/deploy/trimly-co-ke"
-          scp -i ~/.ssh/id_ed25519 -r k8s/* \
-            ubuntu@${{ secrets.SERVER_IP }}:~/deploy/trimly-co-ke/
+      - name: Copy k8s manifests to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "k8s/namespace.yaml,k8s/configmap.yaml,k8s/postgres.yaml,k8s/minio.yaml,k8s/deploy.yaml,k8s/cronjobs.yaml,k8s/ingress.yaml,k8s/middleware-redirect.yaml"
+          target: "/opt/trimly-co-ke/k8s/"
+          strip_components: 1
 
-      - name: Apply manifests & roll deployment
+      - name: Apply manifests and roll deployment
+        uses: appleboy/ssh-action@v1.0.3
         env:
           IMAGE_TAG: ${{ needs.build.outputs.image-tag }}
-        run: |
-          ssh -i ~/.ssh/id_ed25519 ubuntu@${{ secrets.SERVER_IP }} bash -s <<EOF
-            set -euo pipefail
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: IMAGE_TAG
+          command_timeout: 10m
+          script: |
+            set -e
+            cd /opt/trimly-co-ke/k8s
 
-            cd ~/deploy/trimly-co-ke
-
-            # Apply manifests EXCEPT secret.yaml and ghcr-pull-secret.yaml —
-            # those are templates with placeholder values. The real secrets
-            # are created out-of-band by the operator (see docs/DEPLOYMENT.md).
-            for f in namespace.yaml configmap.yaml postgres.yaml minio.yaml deploy.yaml cronjobs.yaml; do
-              echo "==> kubectl apply -f \$f"
-              kubectl apply -f "\$f"
+            # secret.yaml and ghcr-pull-secret.yaml are templates — applied
+            # out-of-band on first bootstrap (see docs/DEPLOYMENT.md).
+            for f in namespace.yaml configmap.yaml postgres.yaml minio.yaml deploy.yaml cronjobs.yaml ingress.yaml middleware-redirect.yaml; do
+              if [ -f "$f" ]; then
+                echo "==> kubectl apply -f $f"
+                sudo kubectl apply -f "$f"
+              fi
             done
 
-            # Set the image to the freshly built tag.
-            kubectl set image deployment/${K3S_DEPLOYMENT} \
-              ${K3S_CONTAINER}=${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
-              --namespace ${K3S_NAMESPACE}
+            sudo kubectl set image deployment/trimly-co-ke-deployment \
+              web=ghcr.io/justinelut/trimly-co-ke:${IMAGE_TAG} \
+              -n trimly-co-ke
 
-            # Wait for the rollout. Fail the workflow if pods don't come up.
-            kubectl rollout status deployment/${K3S_DEPLOYMENT} \
-              --namespace ${K3S_NAMESPACE} \
-              --timeout=5m
-          EOF
+            sudo kubectl rollout status deployment/trimly-co-ke-deployment \
+              -n trimly-co-ke --timeout=8m
+
+            echo "✅ Deployed ghcr.io/justinelut/trimly-co-ke:${IMAGE_TAG}"
 
       - name: Summary
         if: always()
         run: |
           echo "### Deploy summary" >> $GITHUB_STEP_SUMMARY
-          echo "- Image: \`${REGISTRY}/${IMAGE_NAME}:${{ needs.build.outputs.image-tag }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Namespace: \`${K3S_NAMESPACE}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Deployment: \`${K3S_DEPLOYMENT}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Image: \`ghcr.io/justinelut/trimly-co-ke:${{ needs.build.outputs.image-tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Namespace: \`trimly-co-ke\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Deployment: \`trimly-co-ke-deployment\`" >> $GITHUB_STEP_SUMMARY
           echo "- URL: https://trimly.co.ke" >> $GITHUB_STEP_SUMMARY
