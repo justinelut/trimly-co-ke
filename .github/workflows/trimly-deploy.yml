@@ -149,8 +149,12 @@ jobs:
             echo "::error::ENV_SECRET repo secret is empty. Paste your .env.secret contents into it via Settings → Secrets and variables → Actions."
             exit 1
           fi
-          umask 077
+          # Default permissions — appleboy/scp-action's Docker container
+          # runs as a different UID than the runner; 0600 files are not
+          # readable across that boundary. The file is shredded on the
+          # server post-apply (defense in depth).
           printf '%s\n' "$ENV_SECRET" > k8s/trimly.env.secret
+          chmod 644 k8s/trimly.env.secret
           echo "Staged $(wc -l < k8s/trimly.env.secret) lines into k8s/trimly.env.secret"
 
       - name: Create target directory on server
