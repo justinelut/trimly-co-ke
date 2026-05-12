@@ -228,15 +228,22 @@ jobs:
               | sudo kubectl apply -f -
             echo "==> trimly-co-ke-secret synced"
 
-            # 3. Sync the GHCR image-pull Secret.
-            sudo kubectl create secret docker-registry ghcr-pull-secret -n "$NS" \
-              --dry-run=client -o yaml \
-              --docker-server=ghcr.io \
-              --docker-username="${GHCR_USER}" \
-              --docker-password="${GHCR_PAT}" \
-              --docker-email="${GHCR_EMAIL}" \
-              | sudo kubectl apply -f -
-            echo "==> ghcr-pull-secret synced"
+            # 3. Sync the GHCR image-pull Secret IF credentials are configured.
+            #    Skip cleanly when GHCR_USER/PAT/EMAIL aren't set in repo Secrets
+            #    — happens when the GHCR package is public (no auth needed).
+            if [ -n "${GHCR_USER:-}" ] && [ -n "${GHCR_PAT:-}" ] && [ -n "${GHCR_EMAIL:-}" ]; then
+              sudo kubectl create secret docker-registry ghcr-pull-secret -n "$NS" \
+                --dry-run=client -o yaml \
+                --docker-server=ghcr.io \
+                --docker-username="${GHCR_USER}" \
+                --docker-password="${GHCR_PAT}" \
+                --docker-email="${GHCR_EMAIL}" \
+                | sudo kubectl apply -f -
+              echo "==> ghcr-pull-secret synced"
+            else
+              echo "==> GHCR creds (GHCR_USER/GHCR_PULL_PAT/GHCR_EMAIL) not in GHA secrets — skipping ghcr-pull-secret."
+              echo "    OK if the GHCR package is public. Set those secrets if it stays private."
+            fi
 
             # 4. Apply the rest of the manifests (namespace already done above).
             for f in configmap.yaml postgres.yaml minio.yaml deploy.yaml cronjobs.yaml ingress.yaml middleware-redirect.yaml; do
