@@ -164,10 +164,14 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: IMAGE_TAG
-          command_timeout: 10m
+          command_timeout: 12m
           script: |
             set -e
             cd /opt/trimly-co-ke/k8s
+
+            NS=trimly-co-ke
+            DEP=trimly-co-ke-deployment
+            LABEL=app=trimly-co-ke
 
             # secret.yaml and ghcr-pull-secret.yaml are templates — applied
             # out-of-band on first bootstrap (see docs/DEPLOYMENT.md).
@@ -178,12 +182,56 @@ jobs:
               fi
             done
 
-            sudo kubectl set image deployment/trimly-co-ke-deployment \
+            sudo kubectl set image deployment/$DEP \
               web=ghcr.io/justinelut/trimly-co-ke:${IMAGE_TAG} \
-              -n trimly-co-ke
+              -n $NS
 
-            sudo kubectl rollout status deployment/trimly-co-ke-deployment \
-              -n trimly-co-ke --timeout=8m
+            # Rolling out with a background rollout-status + foreground
+            # poll loop. The poll emits pod state every 15s so SSH stays
+            # warm AND we see what's happening live. On failure we dump
+            # describe + logs (current + previous) — diagnose without
+            # needing to SSH in.
+            sudo kubectl rollout status "deployment/$DEP" -n "$NS" --timeout=8m &
+            ROLLOUT_PID=$!
+
+            while kill -0 $ROLLOUT_PID 2>/dev/null; do
+              sleep 15
+              echo "---- $(date -u +%H:%M:%S) pod state ----"
+              sudo kubectl -n "$NS" get pods -l $LABEL -o wide --no-headers 2>/dev/null || true
+              POD=$(sudo kubectl -n "$NS" get pods -l $LABEL \
+                --sort-by=.metadata.creationTimestamp \
+                -o jsonpath='{.items[-1:].metadata.name}' 2>/dev/null || echo "")
+              if [ -n "$POD" ]; then
+                sudo kubectl -n "$NS" describe pod "$POD" 2>/dev/null \
+                  | awk '/^Events:/,0' | head -n 12 || true
+              fi
+            done
+
+            wait $ROLLOUT_PID
+            RC=$?
+
+            if [ $RC -ne 0 ]; then
+              echo ""
+              echo "========================================"
+              echo " ROLLOUT FAILED — DIAGNOSTIC DUMP"
+              echo "========================================"
+              echo ""
+              echo "==> All pods in namespace:"
+              sudo kubectl -n "$NS" get pods -o wide 2>&1 || true
+              echo ""
+              echo "==> Recent events (sorted, last 30):"
+              sudo kubectl -n "$NS" get events --sort-by=.lastTimestamp 2>&1 | tail -30 || true
+              echo ""
+              echo "==> describe pod (newest matching $LABEL):"
+              sudo kubectl -n "$NS" describe pod -l $LABEL 2>&1 | tail -n 80 || true
+              echo ""
+              echo "==> current logs (tail 200):"
+              sudo kubectl -n "$NS" logs deployment/$DEP --tail=200 --all-containers=true 2>&1 || true
+              echo ""
+              echo "==> previous logs (if crashed):"
+              sudo kubectl -n "$NS" logs deployment/$DEP --tail=200 --all-containers=true --previous 2>&1 || true
+              exit $RC
+            fi
 
             echo "✅ Deployed ghcr.io/justinelut/trimly-co-ke:${IMAGE_TAG}"
 
