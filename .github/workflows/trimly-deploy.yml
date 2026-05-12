@@ -136,6 +136,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Stage the .env.secret file on the runner from a SINGLE GHA secret
+      # (ENV_SECRET) containing the entire multi-line .env contents.
+      # Use printf '%s\n' (not echo) so backslashes / dollar signs in values
+      # aren't interpreted by the shell.
+      - name: Stage env file on runner
+        env:
+          ENV_SECRET: ${{ secrets.ENV_SECRET }}
+        run: |
+          if [ -z "${ENV_SECRET:-}" ]; then
+            echo "::error::ENV_SECRET repo secret is empty. Paste your .env.secret contents into it via Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          umask 077
+          mkdir -p _ci_stage
+          printf '%s\n' "$ENV_SECRET" > _ci_stage/trimly.env.secret
+          echo "Staged $(wc -l < _ci_stage/trimly.env.secret) lines."
+
       - name: Create target directory on server
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -146,13 +163,15 @@ jobs:
             sudo mkdir -p /opt/trimly-co-ke/k8s
             sudo chown -R ubuntu:ubuntu /opt/trimly-co-ke
 
-      - name: Copy k8s manifests to server
+      - name: Copy k8s manifests + env file to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "k8s/namespace.yaml,k8s/configmap.yaml,k8s/postgres.yaml,k8s/minio.yaml,k8s/deploy.yaml,k8s/cronjobs.yaml,k8s/ingress.yaml,k8s/middleware-redirect.yaml"
+          # All sources have one leading dir (k8s/ or _ci_stage/) that
+          # strip_components: 1 removes, so files land directly under target.
+          source: "k8s/namespace.yaml,k8s/configmap.yaml,k8s/postgres.yaml,k8s/minio.yaml,k8s/deploy.yaml,k8s/cronjobs.yaml,k8s/ingress.yaml,k8s/middleware-redirect.yaml,_ci_stage/trimly.env.secret"
           target: "/opt/trimly-co-ke/k8s/"
           strip_components: 1
 
@@ -160,36 +179,14 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           IMAGE_TAG: ${{ needs.build.outputs.image-tag }}
-          # ---- App + DB secret keys (sourced from GitHub repo Secrets) ----
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          CALENDSO_ENCRYPTION_KEY: ${{ secrets.CALENDSO_ENCRYPTION_KEY }}
-          PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
-          PAYSTACK_WEBHOOK_SECRET: ${{ secrets.PAYSTACK_WEBHOOK_SECRET }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
-          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-          AT_USERNAME: ${{ secrets.AT_USERNAME }}
-          AT_API_KEY: ${{ secrets.AT_API_KEY }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
-          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          # ---- GHCR pull credentials (auto-issued, zero setup) ----
-          # GitHub mints GITHUB_TOKEN with packages:read scope on each run.
-          # github.actor is whoever triggered the run.
+          # GHCR pull credentials — auto-issued, zero setup.
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_PULL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE_TAG,POSTGRES_PASSWORD,DATABASE_URL,NEXTAUTH_SECRET,CALENDSO_ENCRYPTION_KEY,PAYSTACK_SECRET_KEY,PAYSTACK_WEBHOOK_SECRET,RESEND_API_KEY,MINIO_ROOT_USER,MINIO_ROOT_PASSWORD,STORAGE_ACCESS_KEY,STORAGE_SECRET_KEY,AT_USERNAME,AT_API_KEY,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,POSTHOG_KEY,POSTHOG_HOST,SENTRY_DSN,CRON_SECRET,GHCR_USERNAME,GHCR_PULL_TOKEN
+          envs: IMAGE_TAG,GHCR_USERNAME,GHCR_PULL_TOKEN
           command_timeout: 12m
           script: |
             set -e
@@ -198,44 +195,32 @@ jobs:
             NS=trimly-co-ke
             DEP=trimly-co-ke-deployment
             LABEL=app=trimly-co-ke
+            ENV_FILE=/opt/trimly-co-ke/k8s/trimly.env.secret
 
             # 1. Ensure namespace exists before secrets are created.
             sudo kubectl apply -f namespace.yaml
 
-            # 2. Sync the app/db Secret from GitHub Actions secrets.
-            #    --dry-run=client | apply makes this idempotent: creates on
-            #    first run, updates on every subsequent run. Values never
-            #    appear on stdout because kubectl reads them as flag args.
+            # 2. Sync the app/db Secret from the single .env file we just
+            #    scp'd from GHA. Every KEY=VALUE line in ENV_SECRET (the
+            #    repo secret) becomes a key in the K8s Secret.
+            #    --dry-run=client | apply makes this idempotent.
+            if [ ! -s "$ENV_FILE" ]; then
+              echo "::error::Staged env file is missing or empty at $ENV_FILE"
+              exit 1
+            fi
             sudo kubectl create secret generic trimly-co-ke-secret -n "$NS" \
+              --from-env-file="$ENV_FILE" \
               --dry-run=client -o yaml \
-              --from-literal=POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
-              --from-literal=DATABASE_URL="${DATABASE_URL}" \
-              --from-literal=NEXTAUTH_SECRET="${NEXTAUTH_SECRET}" \
-              --from-literal=CALENDSO_ENCRYPTION_KEY="${CALENDSO_ENCRYPTION_KEY}" \
-              --from-literal=PAYSTACK_SECRET_KEY="${PAYSTACK_SECRET_KEY}" \
-              --from-literal=PAYSTACK_WEBHOOK_SECRET="${PAYSTACK_WEBHOOK_SECRET}" \
-              --from-literal=RESEND_API_KEY="${RESEND_API_KEY}" \
-              --from-literal=MINIO_ROOT_USER="${MINIO_ROOT_USER:-trimly_admin}" \
-              --from-literal=MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD}" \
-              --from-literal=STORAGE_ACCESS_KEY="${STORAGE_ACCESS_KEY:-${MINIO_ROOT_USER:-trimly_admin}}" \
-              --from-literal=STORAGE_SECRET_KEY="${STORAGE_SECRET_KEY:-${MINIO_ROOT_PASSWORD}}" \
-              --from-literal=AT_USERNAME="${AT_USERNAME:-placeholder}" \
-              --from-literal=AT_API_KEY="${AT_API_KEY:-placeholder}" \
-              --from-literal=GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-placeholder.apps.googleusercontent.com}" \
-              --from-literal=GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-placeholder}" \
-              --from-literal=POSTHOG_KEY="${POSTHOG_KEY:-placeholder}" \
-              --from-literal=POSTHOG_HOST="${POSTHOG_HOST:-https://eu.posthog.com}" \
-              --from-literal=SENTRY_DSN="${SENTRY_DSN:-}" \
-              --from-literal=CRON_SECRET="${CRON_SECRET}" \
               | sudo kubectl apply -f -
-            echo "==> trimly-co-ke-secret synced"
+            echo "==> trimly-co-ke-secret synced from $(wc -l < $ENV_FILE) env lines"
 
-            # 3. Sync the GHCR image-pull Secret using the auto-issued
+            # 3. Wipe the plaintext env file from the server (defense in depth;
+            #    K8s now holds the values in the Secret, no need for the file).
+            sudo rm -f "$ENV_FILE"
+
+            # 4. Sync the GHCR image-pull Secret using the auto-issued
             #    GITHUB_TOKEN (no manual PAT needed). permissions:packages:read
-            #    on this job lets the token pull from GHCR. The token is
-            #    short-lived, but containerd caches the image after the first
-            #    pull triggered by `kubectl set image` below — subsequent pod
-            #    restarts use the cached image, no re-pull, no auth needed.
+            #    on this job lets the token pull from GHCR.
             sudo kubectl create secret docker-registry ghcr-pull-secret -n "$NS" \
               --dry-run=client -o yaml \
               --docker-server=ghcr.io \
