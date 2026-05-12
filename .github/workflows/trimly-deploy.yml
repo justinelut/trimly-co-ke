@@ -159,11 +159,35 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           IMAGE_TAG: ${{ needs.build.outputs.image-tag }}
+          # ---- App + DB secret keys (sourced from GitHub repo Secrets) ----
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          CALENDSO_ENCRYPTION_KEY: ${{ secrets.CALENDSO_ENCRYPTION_KEY }}
+          PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
+          PAYSTACK_WEBHOOK_SECRET: ${{ secrets.PAYSTACK_WEBHOOK_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
+          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          AT_USERNAME: ${{ secrets.AT_USERNAME }}
+          AT_API_KEY: ${{ secrets.AT_API_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # ---- GHCR pull credentials ----
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_PAT: ${{ secrets.GHCR_PULL_PAT }}
+          GHCR_EMAIL: ${{ secrets.GHCR_EMAIL }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE_TAG
+          envs: IMAGE_TAG,POSTGRES_PASSWORD,DATABASE_URL,NEXTAUTH_SECRET,CALENDSO_ENCRYPTION_KEY,PAYSTACK_SECRET_KEY,PAYSTACK_WEBHOOK_SECRET,RESEND_API_KEY,MINIO_ROOT_USER,MINIO_ROOT_PASSWORD,STORAGE_ACCESS_KEY,STORAGE_SECRET_KEY,AT_USERNAME,AT_API_KEY,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,POSTHOG_KEY,POSTHOG_HOST,SENTRY_DSN,CRON_SECRET,GHCR_USER,GHCR_PAT,GHCR_EMAIL
           command_timeout: 12m
           script: |
             set -e
@@ -173,9 +197,49 @@ jobs:
             DEP=trimly-co-ke-deployment
             LABEL=app=trimly-co-ke
 
-            # secret.yaml and ghcr-pull-secret.yaml are templates — applied
-            # out-of-band on first bootstrap (see docs/DEPLOYMENT.md).
-            for f in namespace.yaml configmap.yaml postgres.yaml minio.yaml deploy.yaml cronjobs.yaml ingress.yaml middleware-redirect.yaml; do
+            # 1. Ensure namespace exists before secrets are created.
+            sudo kubectl apply -f namespace.yaml
+
+            # 2. Sync the app/db Secret from GitHub Actions secrets.
+            #    --dry-run=client | apply makes this idempotent: creates on
+            #    first run, updates on every subsequent run. Values never
+            #    appear on stdout because kubectl reads them as flag args.
+            sudo kubectl create secret generic trimly-co-ke-secret -n "$NS" \
+              --dry-run=client -o yaml \
+              --from-literal=POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
+              --from-literal=DATABASE_URL="${DATABASE_URL}" \
+              --from-literal=NEXTAUTH_SECRET="${NEXTAUTH_SECRET}" \
+              --from-literal=CALENDSO_ENCRYPTION_KEY="${CALENDSO_ENCRYPTION_KEY}" \
+              --from-literal=PAYSTACK_SECRET_KEY="${PAYSTACK_SECRET_KEY}" \
+              --from-literal=PAYSTACK_WEBHOOK_SECRET="${PAYSTACK_WEBHOOK_SECRET}" \
+              --from-literal=RESEND_API_KEY="${RESEND_API_KEY}" \
+              --from-literal=MINIO_ROOT_USER="${MINIO_ROOT_USER:-trimly_admin}" \
+              --from-literal=MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD}" \
+              --from-literal=STORAGE_ACCESS_KEY="${STORAGE_ACCESS_KEY:-${MINIO_ROOT_USER:-trimly_admin}}" \
+              --from-literal=STORAGE_SECRET_KEY="${STORAGE_SECRET_KEY:-${MINIO_ROOT_PASSWORD}}" \
+              --from-literal=AT_USERNAME="${AT_USERNAME:-placeholder}" \
+              --from-literal=AT_API_KEY="${AT_API_KEY:-placeholder}" \
+              --from-literal=GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-placeholder.apps.googleusercontent.com}" \
+              --from-literal=GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-placeholder}" \
+              --from-literal=POSTHOG_KEY="${POSTHOG_KEY:-placeholder}" \
+              --from-literal=POSTHOG_HOST="${POSTHOG_HOST:-https://eu.posthog.com}" \
+              --from-literal=SENTRY_DSN="${SENTRY_DSN:-}" \
+              --from-literal=CRON_SECRET="${CRON_SECRET}" \
+              | sudo kubectl apply -f -
+            echo "==> trimly-co-ke-secret synced"
+
+            # 3. Sync the GHCR image-pull Secret.
+            sudo kubectl create secret docker-registry ghcr-pull-secret -n "$NS" \
+              --dry-run=client -o yaml \
+              --docker-server=ghcr.io \
+              --docker-username="${GHCR_USER}" \
+              --docker-password="${GHCR_PAT}" \
+              --docker-email="${GHCR_EMAIL}" \
+              | sudo kubectl apply -f -
+            echo "==> ghcr-pull-secret synced"
+
+            # 4. Apply the rest of the manifests (namespace already done above).
+            for f in configmap.yaml postgres.yaml minio.yaml deploy.yaml cronjobs.yaml ingress.yaml middleware-redirect.yaml; do
               if [ -f "$f" ]; then
                 echo "==> kubectl apply -f $f"
                 sudo kubectl apply -f "$f"
