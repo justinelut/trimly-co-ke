@@ -138,8 +138,9 @@ jobs:
 
       # Stage the .env.secret file on the runner from a SINGLE GHA secret
       # (ENV_SECRET) containing the entire multi-line .env contents.
-      # Use printf '%s\n' (not echo) so backslashes / dollar signs in values
-      # aren't interpreted by the shell.
+      # Written inside k8s/ so the scp step's strip_components: 1 lands
+      # everything cleanly at /opt/trimly-co-ke/k8s/. Mixed-prefix sources
+      # in appleboy/scp-action don't tar-package reliably.
       - name: Stage env file on runner
         env:
           ENV_SECRET: ${{ secrets.ENV_SECRET }}
@@ -149,9 +150,8 @@ jobs:
             exit 1
           fi
           umask 077
-          mkdir -p _ci_stage
-          printf '%s\n' "$ENV_SECRET" > _ci_stage/trimly.env.secret
-          echo "Staged $(wc -l < _ci_stage/trimly.env.secret) lines."
+          printf '%s\n' "$ENV_SECRET" > k8s/trimly.env.secret
+          echo "Staged $(wc -l < k8s/trimly.env.secret) lines into k8s/trimly.env.secret"
 
       - name: Create target directory on server
         uses: appleboy/ssh-action@v1.0.3
@@ -169,9 +169,9 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # All sources have one leading dir (k8s/ or _ci_stage/) that
-          # strip_components: 1 removes, so files land directly under target.
-          source: "k8s/namespace.yaml,k8s/configmap.yaml,k8s/postgres.yaml,k8s/minio.yaml,k8s/deploy.yaml,k8s/cronjobs.yaml,k8s/ingress.yaml,k8s/middleware-redirect.yaml,_ci_stage/trimly.env.secret"
+          # All sources share the k8s/ prefix (env file is staged into k8s/
+          # by the previous step) so strip_components: 1 works uniformly.
+          source: "k8s/namespace.yaml,k8s/configmap.yaml,k8s/postgres.yaml,k8s/minio.yaml,k8s/deploy.yaml,k8s/cronjobs.yaml,k8s/ingress.yaml,k8s/middleware-redirect.yaml,k8s/trimly.env.secret"
           target: "/opt/trimly-co-ke/k8s/"
           strip_components: 1
 
