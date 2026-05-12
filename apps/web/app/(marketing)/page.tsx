@@ -33,12 +33,11 @@ export const metadata = {
   },
 };
 
-// TODO: replace with the published MinIO URL once the asset is uploaded to the
-// trimly-co-ke-uploads bucket. The current value points to the dev artifact
-// served from hyperagent.com — fine for local development, but production
-// should serve from storage.trimly.co.ke/trimly-co-ke-uploads/marketing/hero.png
-const HERO_IMAGE =
-  "https://hyperagent.com/api/files/usergenerated/threads/cmp15819x096u07ad95nk2i5k/images/20debe68-cec6-4258-8943-8ea8b4bd26f5.png";
+// Hero is bundled with the Next.js app for the first cut. When MinIO is
+// wired up as a public storage backend (storage.trimly.co.ke), marketing
+// assets can move there to enable updates without a redeploy. For now,
+// shipping in /public keeps the path simple and the image edge-cacheable.
+const HERO_IMAGE = "/img/hero.jpg";
 
 function parseOperatorEmails(): Set<string> {
   return new Set(
