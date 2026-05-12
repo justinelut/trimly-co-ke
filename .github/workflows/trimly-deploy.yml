@@ -131,6 +131,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read              # mints GITHUB_TOKEN with GHCR pull rights
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -179,15 +180,16 @@ jobs:
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          # ---- GHCR pull credentials ----
-          GHCR_USER: ${{ secrets.GHCR_USER }}
-          GHCR_PAT: ${{ secrets.GHCR_PULL_PAT }}
-          GHCR_EMAIL: ${{ secrets.GHCR_EMAIL }}
+          # ---- GHCR pull credentials (auto-issued, zero setup) ----
+          # GitHub mints GITHUB_TOKEN with packages:read scope on each run.
+          # github.actor is whoever triggered the run.
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_PULL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE_TAG,POSTGRES_PASSWORD,DATABASE_URL,NEXTAUTH_SECRET,CALENDSO_ENCRYPTION_KEY,PAYSTACK_SECRET_KEY,PAYSTACK_WEBHOOK_SECRET,RESEND_API_KEY,MINIO_ROOT_USER,MINIO_ROOT_PASSWORD,STORAGE_ACCESS_KEY,STORAGE_SECRET_KEY,AT_USERNAME,AT_API_KEY,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,POSTHOG_KEY,POSTHOG_HOST,SENTRY_DSN,CRON_SECRET,GHCR_USER,GHCR_PAT,GHCR_EMAIL
+          envs: IMAGE_TAG,POSTGRES_PASSWORD,DATABASE_URL,NEXTAUTH_SECRET,CALENDSO_ENCRYPTION_KEY,PAYSTACK_SECRET_KEY,PAYSTACK_WEBHOOK_SECRET,RESEND_API_KEY,MINIO_ROOT_USER,MINIO_ROOT_PASSWORD,STORAGE_ACCESS_KEY,STORAGE_SECRET_KEY,AT_USERNAME,AT_API_KEY,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,POSTHOG_KEY,POSTHOG_HOST,SENTRY_DSN,CRON_SECRET,GHCR_USERNAME,GHCR_PULL_TOKEN
           command_timeout: 12m
           script: |
             set -e
@@ -228,22 +230,20 @@ jobs:
               | sudo kubectl apply -f -
             echo "==> trimly-co-ke-secret synced"
 
-            # 3. Sync the GHCR image-pull Secret IF credentials are configured.
-            #    Skip cleanly when GHCR_USER/PAT/EMAIL aren't set in repo Secrets
-            #    — happens when the GHCR package is public (no auth needed).
-            if [ -n "${GHCR_USER:-}" ] && [ -n "${GHCR_PAT:-}" ] && [ -n "${GHCR_EMAIL:-}" ]; then
-              sudo kubectl create secret docker-registry ghcr-pull-secret -n "$NS" \
-                --dry-run=client -o yaml \
-                --docker-server=ghcr.io \
-                --docker-username="${GHCR_USER}" \
-                --docker-password="${GHCR_PAT}" \
-                --docker-email="${GHCR_EMAIL}" \
-                | sudo kubectl apply -f -
-              echo "==> ghcr-pull-secret synced"
-            else
-              echo "==> GHCR creds (GHCR_USER/GHCR_PULL_PAT/GHCR_EMAIL) not in GHA secrets — skipping ghcr-pull-secret."
-              echo "    OK if the GHCR package is public. Set those secrets if it stays private."
-            fi
+            # 3. Sync the GHCR image-pull Secret using the auto-issued
+            #    GITHUB_TOKEN (no manual PAT needed). permissions:packages:read
+            #    on this job lets the token pull from GHCR. The token is
+            #    short-lived, but containerd caches the image after the first
+            #    pull triggered by `kubectl set image` below — subsequent pod
+            #    restarts use the cached image, no re-pull, no auth needed.
+            sudo kubectl create secret docker-registry ghcr-pull-secret -n "$NS" \
+              --dry-run=client -o yaml \
+              --docker-server=ghcr.io \
+              --docker-username="${GHCR_USERNAME}" \
+              --docker-password="${GHCR_PULL_TOKEN}" \
+              --docker-email="ops@trimly.co.ke" \
+              | sudo kubectl apply -f -
+            echo "==> ghcr-pull-secret synced (via GITHUB_TOKEN)"
 
             # 4. Apply the rest of the manifests (namespace already done above).
             for f in configmap.yaml postgres.yaml minio.yaml deploy.yaml cronjobs.yaml ingress.yaml middleware-redirect.yaml; do
