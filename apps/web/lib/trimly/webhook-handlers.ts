@@ -115,6 +115,38 @@ async function handleChargeSuccess(rawData: unknown, ctx: HandlerContext): Promi
     rawCallback: ctx.rawPayload,
   });
 
+  // Save payment method for future use (if authorization is present)
+  try {
+    const auth = (data as any).authorization;
+    const customerEmail = data.customer?.email;
+    if (auth?.authorization_code && customerEmail) {
+      const user = await prisma.user.findFirst({ where: { email: customerEmail }, select: { id: true } });
+      if (user) {
+        const channel = normaliseChannel(data.channel);
+        const existing = await prisma.trimlyPaymentMethod.findFirst({
+          where: { userId: user.id, paystackAuthCode: auth.authorization_code },
+        });
+        if (!existing) {
+          await prisma.trimlyPaymentMethod.create({
+            data: {
+              userId: user.id,
+              kind: channel === "mobile_money" ? "mpesa" : "card",
+              paystackAuthCode: auth.authorization_code,
+              phone: channel === "mobile_money" ? auth.receiver_bank_account_number || null : null,
+              brand: auth.brand || auth.bank || null,
+              last4: auth.last4 || null,
+              expMonth: auth.exp_month ? parseInt(auth.exp_month) : null,
+              expYear: auth.exp_year ? parseInt(auth.exp_year) : null,
+              isDefault: true,
+            },
+          });
+        }
+      }
+    }
+  } catch {
+    // Non-fatal — payment method saving shouldn't block the webhook
+  }
+
   return {
     ok: true,
     action: ids.subscriptionId ? "subscription_renewed" : "booking_confirmed",

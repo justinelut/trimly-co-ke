@@ -79,7 +79,7 @@ export async function chargeMobileMoney(input: {
       amount: input.amountKobo,
       currency: "KES",
       mobile_money: {
-        phone: input.phone,
+        phone: "+254" + input.phone.slice(1),
         provider: "mpesa",
       },
       metadata: {
@@ -122,8 +122,8 @@ export async function chargeMobileMoney(input: {
 export async function chargeCard(input: {
   email: string;
   amountKobo: number;
-  /** Output of paystack.encrypt(cardDetails) — opaque ciphertext */
-  encryptedCard: string;
+  /** Encrypted card string OR raw card object */
+  encryptedCard: string | { number: string; cvv: string; expiry_month: string; expiry_year: string };
   bookingId: string;
 }): Promise<ChargeResponse> {
   const res = await fetch(`${PAYSTACK_BASE}/charge`, {

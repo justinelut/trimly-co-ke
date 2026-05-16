@@ -514,12 +514,12 @@ model User {
   // All additive — generated migration ALTERs the schema but never drops data.
   // Preference columns are optional so existing cal users get nulls and we
   // fall back to sensible defaults in the UI until they fill them in.
-  trimlyBookings          TrimlyBooking[]
-  trimlySubscriptions     TrimlySubscription[]
-  trimlyPaymentMethods    TrimlyPaymentMethod[]
-  trimlyPhone             String? // normalised "0712345678" form
-  trimlyPreferredCity     String? // "Nakuru" | "Nairobi"
-  trimlyPreferredContact  String? // "whatsapp" | "sms" | "email"
+  trimlyBookings         TrimlyBooking[]
+  trimlySubscriptions    TrimlySubscription[]
+  trimlyPaymentMethods   TrimlyPaymentMethod[]
+  trimlyPhone            String? // normalised "0712345678" form
+  trimlyPreferredCity    String? // "Nakuru" | "Nairobi"
+  trimlyPreferredContact String? // "whatsapp" | "sms" | "email"
   // --------------------------------------------------------------------------
 
   @@unique([email])
@@ -2862,7 +2862,6 @@ model AttributeSyncFieldMapping {
   @@index([integrationAttributeSyncId])
 }
 
-
 // =============================================================================
 // TRIMLY MODELS — additive extension of the cal.diy schema.
 // DO NOT modify any model above this comment block. Per the Trimly build brief:
@@ -2880,37 +2879,37 @@ model TrimlyService {
   name            String
   description     String
   durationMin     Int
-  priceKESNakuru  Int      // home-base price (Nakuru)
-  priceKESNairobi Int      // travel-premium price (Nairobi)
+  priceKESNakuru  Int // home-base price (Nakuru)
+  priceKESNairobi Int // travel-premium price (Nairobi)
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
 
-  bookings        TrimlyBooking[]
+  bookings TrimlyBooking[]
 }
 
 model TrimlyBooking {
-  id            String   @id @default(cuid())
-  userId        Int
-  serviceId     String
-  scheduledFor  DateTime
-  addressLine1  String
-  addressLine2  String?
-  estate        String
-  city          String   @default("Nakuru")  // "Nakuru" or "Nairobi" — drives pricing tier
-  notes         String?
-  totalKES      Int
-  paymentMethod String   // "mpesa" | "paystack_card"
-  paymentStatus String   // "pending" | "succeeded" | "failed" | "refunded"
-  bookingStatus String   // "confirmed" | "in_progress" | "completed" | "cancelled" | "no_show"
+  id                    String    @id @default(cuid())
+  userId                Int
+  serviceId             String
+  scheduledFor          DateTime
+  addressLine1          String
+  addressLine2          String?
+  estate                String
+  city                  String    @default("Nakuru") // "Nakuru" or "Nairobi" — drives pricing tier
+  notes                 String?
+  totalKES              Int
+  paymentMethod         String // "mpesa" | "paystack_card"
+  paymentStatus         String // "pending" | "succeeded" | "failed" | "refunded"
+  bookingStatus         String // "confirmed" | "in_progress" | "completed" | "cancelled" | "no_show"
   /// Set by the arrival-reminders cron when the "we're 15 min out" email
   /// fires. Used to dedupe the cron so we don't ping the same customer twice.
   arrivalReminderSentAt DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  user          User           @relation(fields: [userId], references: [id])
-  service       TrimlyService  @relation(fields: [serviceId], references: [id])
-  payment       TrimlyPayment?
+  user    User           @relation(fields: [userId], references: [id])
+  service TrimlyService  @relation(fields: [serviceId], references: [id])
+  payment TrimlyPayment?
 
   @@index([userId])
   @@index([scheduledFor])
@@ -2922,12 +2921,12 @@ model TrimlyPayment {
   id                String   @id @default(cuid())
   bookingId         String?  @unique
   subscriptionId    String?
-  provider          String   // always "paystack" — single provider for cards AND M-Pesa
-  providerReference String   // Paystack reference (transaction or charge)
-  channel           String   // "mobile_money" | "card" — payment surface that fronted it
+  provider          String // always "paystack" — single provider for cards AND M-Pesa
+  providerReference String // Paystack reference (transaction or charge)
+  channel           String // "mobile_money" | "card" — payment surface that fronted it
   amountKES         Int
-  status            String   // "pending" | "succeeded" | "failed" | "refunded"
-  rawCallback       Json?    // store raw provider payload for audit
+  status            String // "pending" | "succeeded" | "failed" | "refunded"
+  rawCallback       Json? // store raw provider payload for audit
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -2940,16 +2939,16 @@ model TrimlyPayment {
 }
 
 model TrimlyPlan {
-  id               String   @id @default(cuid())
-  slug             String   @unique  // "starter" | "regular" | "executive"
+  id               String  @id @default(cuid())
+  slug             String  @unique // "starter" | "regular" | "executive"
   name             String
   cutsPerMonth     Int
   priceKES         Int
-  intervalMonths   Int      @default(1)  // 1 = monthly, 12 = yearly
-  paystackPlanCode String?               // populated after Paystack plan creation
-  isActive         Boolean  @default(true)
+  intervalMonths   Int     @default(1) // 1 = monthly, 12 = yearly
+  paystackPlanCode String? // populated after Paystack plan creation
+  isActive         Boolean @default(true)
 
-  subscriptions    TrimlySubscription[]
+  subscriptions TrimlySubscription[]
 }
 
 model TrimlySubscription {
@@ -2958,8 +2957,8 @@ model TrimlySubscription {
   planId                   String
   paystackSubscriptionCode String?
   paystackCustomerCode     String?
-  paymentMethod            String   // "mpesa" | "paystack_card" — drives renewal cron behaviour
-  status                   String   // "active" | "past_due" | "cancelled" | "non_renewing"
+  paymentMethod            String // "mpesa" | "paystack_card" — drives renewal cron behaviour
+  status                   String // "active" | "past_due" | "cancelled" | "non_renewing"
   currentPeriodStart       DateTime
   currentPeriodEnd         DateTime
   cancelAtPeriodEnd        Boolean  @default(false)
@@ -2967,25 +2966,25 @@ model TrimlySubscription {
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
-  user     User             @relation(fields: [userId], references: [id])
-  plan     TrimlyPlan       @relation(fields: [planId], references: [id])
+  user     User            @relation(fields: [userId], references: [id])
+  plan     TrimlyPlan      @relation(fields: [planId], references: [id])
   payments TrimlyPayment[]
 
   @@index([userId])
-  @@index([status, currentPeriodEnd])  // drives the daily M-Pesa renewal cron query
+  @@index([status, currentPeriodEnd]) // drives the daily M-Pesa renewal cron query
   @@index([paymentMethod, status, currentPeriodEnd])
 }
 
 model TrimlyAvailability {
   id        String   @id @default(cuid())
   date      DateTime
-  startTime String   // "09:00"
-  endTime   String   // "17:00"
+  startTime String // "09:00"
+  endTime   String // "17:00"
   city      String   @default("Nakuru")
   isBlocked Boolean  @default(false)
   reason    String?
 
-  @@unique([date, city])  // operator availability upsert keys on (date, city)
+  @@unique([date, city]) // operator availability upsert keys on (date, city)
   @@index([date, city])
 }
 
@@ -2994,22 +2993,22 @@ model TrimlyAvailability {
 // and a normalised M-Pesa number we remember from the customer's last
 // successful charge. Surfaced on /account/payment-methods.
 model TrimlyPaymentMethod {
-  id                String   @id @default(cuid())
-  userId            Int
-  kind              String   // "card" | "mpesa"
+  id               String   @id @default(cuid())
+  userId           Int
+  kind             String // "card" | "mpesa"
   /// Paystack reusable authorization code (cards only). NEVER expose via DTO.
-  paystackAuthCode  String?
+  paystackAuthCode String?
   /// E.164-normalised "0712345678" form (M-Pesa only)
-  phone             String?
-  brand             String   // "Visa" | "Mastercard" | "Amex" | "M-Pesa"
-  last4             String?  // "4081"
-  expMonth          Int?
-  expYear           Int?
-  isDefault         Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  phone            String?
+  brand            String // "Visa" | "Mastercard" | "Amex" | "M-Pesa"
+  last4            String? // "4081"
+  expMonth         Int?
+  expYear          Int?
+  isDefault        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([userId, isDefault])
@@ -3020,9 +3019,9 @@ model TrimlyPaymentMethod {
 // re-processing. See Trimly brief 6.3.
 model TrimlyWebhookEvent {
   id          String   @id @default(cuid())
-  provider    String   // "paystack"
-  eventId     String   // payload.id / payload.event_id from provider
-  eventType   String   // "charge.success" | "subscription.create" | etc.
+  provider    String // "paystack"
+  eventId     String // payload.id / payload.event_id from provider
+  eventType   String // "charge.success" | "subscription.create" | etc.
   rawPayload  Json
   processedAt DateTime @default(now())
 

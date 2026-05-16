@@ -54,13 +54,6 @@ export default async function MarketingPage() {
   const session = await getServerSession({
     req: buildLegacyRequest(await headers(), await cookies()),
   });
-  if (session?.user?.id) {
-    const email = session.user.email?.toLowerCase();
-    if (email && parseOperatorEmails().has(email)) {
-      redirect("/operator/today");
-    }
-    redirect("/account/upcoming");
-  }
 
   return (
     <>
@@ -72,11 +65,17 @@ export default async function MarketingPage() {
           Trim<em>ly</em>
         </Link>
         <nav className="t-nav" aria-label="Primary">
-          <Link href="#services">Services</Link>
-          <Link href="#subscriptions">Pricing</Link>
-          <Link href="#areas">Areas</Link>
-          <Link href="#stories">Stories</Link>
-          <Link href="/login">Login</Link>
+          <Link href="/services">Services</Link>
+          <Link href="/pricing">Pricing</Link>
+          <Link href="/areas">Areas</Link>
+          <Link href="/stories">Stories</Link>
+          {session?.user ? (
+            <Link href={parseOperatorEmails().has(session.user.email?.toLowerCase() ?? "") ? "/event-types" : "/account"}>
+              Dashboard
+            </Link>
+          ) : (
+            <Link href="/login">Login</Link>
+          )}
         </nav>
         <div className="t-header__cta">
           <ThemeToggle />
@@ -110,7 +109,7 @@ export default async function MarketingPage() {
             <Link href="/book" className="t-btn t-btn--primary t-btn--lg">
               Book a cut · from KES 2,000
             </Link>
-            <Link href="#subscriptions" className="t-btn t-btn--ghost">
+            <Link href="/pricing" className="t-btn t-btn--ghost">
               See subscriptions
             </Link>
           </div>
@@ -243,6 +242,7 @@ export default async function MarketingPage() {
           <div className="t-plans">
             <PlanCard
               name="Starter"
+              slug="starter"
               tagline="Two cuts a month for clients who keep it tight."
               monthlyPrice="KES 3,200"
               yearlyPrice="KES 32,000"
@@ -259,6 +259,7 @@ export default async function MarketingPage() {
             />
             <PlanCard
               name="Regular"
+              slug="regular"
               tagline="Weekly cuts. The best per-cut rate Trimly offers."
               monthlyPrice="KES 5,600"
               yearlyPrice="KES 56,000"
@@ -277,6 +278,7 @@ export default async function MarketingPage() {
             />
             <PlanCard
               name="Executive"
+              slug="executive"
               tagline="Weekly executive cut + beard maintenance."
               monthlyPrice="KES 7,800"
               yearlyPrice="KES 78,000"
@@ -586,9 +588,6 @@ export default async function MarketingPage() {
                 A house-call barber for premium clients in Nakuru and Nairobi. Built around the
                 cut, the chair you already have, and the half-hour the salon never gives back.
               </p>
-              <p className="t-paybill" style={{ marginTop: 16 }}>
-                M-Pesa Paybill <strong>247 247</strong> · Account <strong>TRIMLY</strong>
-              </p>
             </div>
             <div>
               <h4>Services</h4>
@@ -602,8 +601,8 @@ export default async function MarketingPage() {
             <div>
               <h4>Company</h4>
               <ul>
-                <li><Link href="#stories">Stories</Link></li>
-                <li><Link href="#areas">Areas served</Link></li>
+                <li><Link href="/stories">Stories</Link></li>
+                <li><Link href="/areas">Areas served</Link></li>
                 <li><Link href="/legal/terms">Terms</Link></li>
                 <li><Link href="/legal/privacy">Privacy</Link></li>
                 <li><Link href="/legal/refund-policy">Refunds</Link></li>
@@ -685,6 +684,7 @@ function ServiceCard({ name, duration, desc, priceKES, unit, iconPath, iconCircl
 
 type PlanCardProps = {
   name: string;
+  slug: string;
   tagline: string;
   monthlyPrice: string;
   yearlyPrice: string;
@@ -698,6 +698,7 @@ type PlanCardProps = {
 
 function PlanCard({
   name,
+  slug,
   tagline,
   monthlyPrice,
   yearlyPrice,
@@ -732,7 +733,7 @@ function PlanCard({
         ))}
       </ul>
       <Link
-        href="/book"
+        href={`/account/subscription?plan=${slug}`}
         className={`t-btn t-btn--${ctaVariant}`}
         style={{ width: "100%", justifyContent: "center" }}>
         {ctaLabel}

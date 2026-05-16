@@ -33,6 +33,11 @@ data:
   STORAGE_REGION: "us-east-1"
   STORAGE_FORCE_PATH_STYLE: "true"
 
+  # ---- Cloudflare R2 (Payload CMS media storage) ----
+  R2_BUCKET: "trimly-storage"
+  R2_ENDPOINT: "https://c1eaaa292b9dddcb67f9592bb5bc1948.r2.cloudflarestorage.com"
+  R2_PUBLIC_URL: "https://storage.trimly.co.ke"
+
   # ---- Region / locale ----
   APP_REGION: "KE"
   APP_TIMEZONE: "Africa/Nairobi"

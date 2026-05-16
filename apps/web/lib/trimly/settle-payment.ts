@@ -50,24 +50,34 @@ interface SettleFailedInput {
  */
 export async function settleSucceeded(input: SettleSucceededInput): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    await tx.trimlyPayment.upsert({
+    const existing = await tx.trimlyPayment.findFirst({
       where: { providerReference: input.reference },
-      update: {
-        status: "succeeded",
-        amountKES: input.amountKES,
-        rawCallback: (input.rawCallback ?? Prisma.JsonNull) as Prisma.InputJsonValue,
-      },
-      create: {
-        bookingId: input.bookingId ?? null,
-        subscriptionId: input.subscriptionId ?? null,
-        provider: "paystack",
-        providerReference: input.reference,
-        channel: input.channel,
-        amountKES: input.amountKES,
-        status: "succeeded",
-        rawCallback: (input.rawCallback ?? Prisma.JsonNull) as Prisma.InputJsonValue,
-      },
+      select: { id: true },
     });
+
+    if (existing) {
+      await tx.trimlyPayment.update({
+        where: { id: existing.id },
+        data: {
+          status: "succeeded",
+          amountKES: input.amountKES,
+          rawCallback: (input.rawCallback ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        },
+      });
+    } else {
+      await tx.trimlyPayment.create({
+        data: {
+          bookingId: input.bookingId ?? null,
+          subscriptionId: input.subscriptionId ?? null,
+          provider: "paystack",
+          providerReference: input.reference,
+          channel: input.channel,
+          amountKES: input.amountKES,
+          status: "succeeded",
+          rawCallback: (input.rawCallback ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        },
+      });
+    }
 
     if (input.bookingId) {
       await tx.trimlyBooking.update({

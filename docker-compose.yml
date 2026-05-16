@@ -17,9 +17,11 @@ services:
     volumes:
       - database-data:/var/lib/postgresql
     environment:
-      - POSTGRES_USER=unicorn_user
-      - POSTGRES_PASSWORD=magical_password
-      - POSTGRES_DB=calendso
+      - POSTGRES_USER=trimly
+      - POSTGRES_PASSWORD=trimly_dev_pass
+      - POSTGRES_DB=trimly_dev
+    ports:
+      - 5432:5432
     networks:
       - stack
 

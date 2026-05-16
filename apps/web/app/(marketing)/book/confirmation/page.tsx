@@ -56,8 +56,8 @@ export default async function ConfirmationPage({ searchParams }: PageProps) {
         <a href={waLink} target="_blank" rel="noopener noreferrer" className="t-btn t-btn--primary t-btn--lg">
           Save the WhatsApp confirmation
         </a>
-        <Link href="/" className="t-btn t-btn--secondary t-btn--lg">
-          Back to home
+        <Link href="/account/upcoming" className="t-btn t-btn--secondary t-btn--lg">
+          View my bookings
         </Link>
       </div>
     </main>

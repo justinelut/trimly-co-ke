@@ -20,7 +20,7 @@ export type BookingStatusDto =
 
 export type PaymentStatusDto = "pending" | "succeeded" | "failed" | "refunded";
 
-export type SubscriptionStatusDto = "active" | "past_due" | "cancelled" | "non_renewing";
+export type SubscriptionStatusDto = "active" | "pending" | "past_due" | "cancelled" | "non_renewing";
 
 export type PaymentMethodKind = "mpesa" | "card";
 

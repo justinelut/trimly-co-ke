@@ -125,9 +125,7 @@ export function EmailLayout({ preview, children, whatsappReplyUrl }: EmailLayout
                 color: COLORS.textMuted,
                 letterSpacing: "0.04em",
               }}>
-              M-Pesa Paybill <strong style={{ color: COLORS.accent, fontWeight: 600 }}>247 247</strong>
-              {" · "}
-              Account <strong style={{ color: COLORS.accent, fontWeight: 600 }}>TRIMLY</strong>
+              M-Pesa payments powered by <strong style={{ color: COLORS.accent, fontWeight: 600 }}>Paystack</strong>
             </Text>
             {whatsappReplyUrl ? (
               <Text style={{ margin: "0 0 16px", fontSize: "13px", color: COLORS.textSecondary }}>

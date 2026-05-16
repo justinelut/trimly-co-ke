@@ -31,7 +31,8 @@ import { quote } from "@lib/trimly/pricing";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const MobileMoneyBody = z.object({
+// Booking charges (existing)
+const MobileMoneyBooking = z.object({
   channel: z.literal("mobile_money"),
   bookingId: z.string().min(1),
   serviceSlug: z.enum(["standard", "executive", "beard", "household"]),
@@ -40,17 +41,38 @@ const MobileMoneyBody = z.object({
   phone: z.string().min(7),
 });
 
-const CardBody = z.object({
+const CardBooking = z.object({
   channel: z.literal("card"),
   bookingId: z.string().min(1),
   serviceSlug: z.enum(["standard", "executive", "beard", "household"]),
   city: z.enum(["Nakuru", "Nairobi"]),
   email: z.string().email(),
-  /** Paystack-encrypted card blob — opaque to us. */
   encryptedCard: z.string().min(1),
 });
 
-const BodySchema = z.discriminatedUnion("channel", [MobileMoneyBody, CardBody]);
+// Subscription charges
+const MobileMoneySubscription = z.object({
+  channel: z.literal("mobile_money"),
+  subscriptionRef: z.string().min(1),
+  amountKES: z.number().positive(),
+  email: z.string().email(),
+  phone: z.string().min(7),
+});
+
+const CardSubscription = z.object({
+  channel: z.literal("card"),
+  subscriptionRef: z.string().min(1),
+  amountKES: z.number().positive(),
+  email: z.string().email(),
+  card: z.object({
+    number: z.string().min(15),
+    cvv: z.string().min(3),
+    expiry_month: z.string().min(2),
+    expiry_year: z.string().min(4),
+  }),
+});
+
+const BodySchema = z.union([MobileMoneyBooking, CardBooking, MobileMoneySubscription, CardSubscription]);
 
 export async function POST(req: Request) {
   let body: unknown;
@@ -68,16 +90,19 @@ export async function POST(req: Request) {
   }
 
   const input = parsed.data;
-  const priceQuote = quote(input.serviceSlug, input.city);
+
+  // Determine amount: booking uses quote(), subscription uses amountKES directly
+  const isSubscription = "subscriptionRef" in input;
+  const amountKobo = isSubscription
+    ? input.amountKES * 100
+    : quote(input.serviceSlug, input.city).amountKobo;
+  const ref = isSubscription ? `sub:${input.subscriptionRef}` : input.bookingId;
 
   try {
     if (input.channel === "mobile_money") {
       const phone = normalisePhone(input.phone);
 
-      // Max single M-Pesa transaction is KES 150,000 (Safaricom limit).
-      // Our priciest service is well under this, but guard anyway in case
-      // someone bundles future household upsells.
-      if (priceQuote.amountKES > 150_000) {
+      if (amountKobo > 15_000_000) {
         return NextResponse.json(
           { error: "amount_exceeds_mpesa_limit", limitKES: 150_000 },
           { status: 400 }
@@ -86,23 +111,23 @@ export async function POST(req: Request) {
 
       const result = await chargeMobileMoney({
         email: input.email,
-        amountKobo: priceQuote.amountKobo,
+        amountKobo,
         phone,
-        bookingId: input.bookingId,
+        bookingId: ref,
       });
       return NextResponse.json(result, { status: 200 });
     }
 
-    // input.channel === "card"
+    // card
+    const cardData = "card" in input ? input.card : input.encryptedCard;
     const result = await chargeCard({
       email: input.email,
-      amountKobo: priceQuote.amountKobo,
-      encryptedCard: input.encryptedCard,
-      bookingId: input.bookingId,
+      amountKobo,
+      encryptedCard: cardData,
+      bookingId: ref,
     });
     return NextResponse.json(result, { status: 200 });
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error("[payments/charge] paystack error", err);
     return NextResponse.json(
       { error: "paystack_error", message: err instanceof Error ? err.message : "unknown" },

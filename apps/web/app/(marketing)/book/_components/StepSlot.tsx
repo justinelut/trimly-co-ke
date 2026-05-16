@@ -1,59 +1,43 @@
 "use client";
 
 /**
- * Step 3 — Date + time slot. Renders a 14-day strip starting tomorrow.
- *
- * Nairobi rules (per Trimly brief §7.2):
- *   - Only Saturdays and one configurable weekday are available (Tuesday by default)
- *   - 5-day minimum lead time, enforced server-side too
- *
- * Nakuru rules:
- *   - Monday–Saturday available
- *   - 24-hour minimum lead time
- *
- * Both cities use the same fixed slot list for the prototype. Real
- * implementation will read from `TrimlyAvailability` rows.
+ * Step 3 — Date + time slot. Fetches real availability from
+ * /api/bookings/slots which checks the operator's Cal.diy schedule
+ * and existing bookings.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { City } from "@lib/trimly/types";
 
 interface Props {
   city: City;
-  value?: string; // ISO datetime
+  value?: string;
   onSelect: (iso: string) => void;
 }
 
-const NAIROBI_ALLOWED_DAYS = [2, 6]; // Tuesday + Saturday
-const NAKURU_ALLOWED_DAYS = [1, 2, 3, 4, 5, 6]; // Mon–Sat
-const SLOTS_PER_DAY = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00"];
-
 const DOW_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH_SHORT = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
 
 function buildDayStrip(city: City) {
-  const days: Array<{ iso: string; dow: string; dom: number; disabled: boolean }> = [];
-  const allowed = city === "Nairobi" ? NAIROBI_ALLOWED_DAYS : NAKURU_ALLOWED_DAYS;
+  const days: Array<{ iso: string; dateStr: string; dow: string; dom: number; disabled: boolean }> = [];
   const minLeadDays = city === "Nairobi" ? 5 : 1;
 
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() + 1); // start tomorrow
+  start.setDate(start.getDate() + 1);
 
   for (let i = 0; i < 14; i += 1) {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
     const dayOfWeek = d.getDay();
     const enoughLead = i + 1 >= minLeadDays;
-    const onAllowedDay = allowed.includes(dayOfWeek);
+    // Only disable if lead time is insufficient; availability is checked server-side
+    const dateStr = d.toISOString().split("T")[0];
     days.push({
       iso: d.toISOString(),
+      dateStr,
       dow: DOW_SHORT[dayOfWeek],
       dom: d.getDate(),
-      disabled: !(enoughLead && onAllowedDay),
+      disabled: !enoughLead,
     });
   }
   return days;
@@ -67,6 +51,20 @@ export function StepSlot({ city, value, onSelect }: Props) {
     d.setHours(0, 0, 0, 0);
     return d.toISOString();
   });
+  const [slots, setSlots] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch available slots when a date is picked
+  useEffect(() => {
+    if (!pickedDate) return;
+    const dateStr = new Date(pickedDate).toISOString().split("T")[0];
+    setLoading(true);
+    fetch(`/api/bookings/slots?city=${city}&date=${dateStr}`)
+      .then((r) => r.json())
+      .then((data) => setSlots(data.slots ?? []))
+      .catch(() => setSlots([]))
+      .finally(() => setLoading(false));
+  }, [pickedDate, city]);
 
   function pickSlot(timeHHMM: string) {
     if (!pickedDate) return;
@@ -89,11 +87,6 @@ export function StepSlot({ city, value, onSelect }: Props) {
       </div>
 
       <div>
-        <p
-          className="t-eyebrow"
-          style={{ marginBottom: 12, fontSize: 11, color: "var(--trimly-text-muted)" }}>
-          {MONTH_SHORT[new Date().getMonth()]}–{MONTH_SHORT[(new Date().getMonth() + 1) % 12]}
-        </p>
         <div className="t-date-strip" role="radiogroup" aria-label="Pick a date">
           {days.map((d) => (
             <button
@@ -110,21 +103,25 @@ export function StepSlot({ city, value, onSelect }: Props) {
           ))}
         </div>
 
-        {pickedDate ? (
+        {pickedDate && loading ? (
+          <p className="t-field__hint" style={{ marginTop: 20 }}>Loading available slots…</p>
+        ) : null}
+
+        {pickedDate && !loading && slots.length === 0 ? (
+          <p className="t-field__hint" style={{ marginTop: 20 }}>No slots available on this day. Try another date.</p>
+        ) : null}
+
+        {pickedDate && !loading && slots.length > 0 ? (
           <>
-            <p
-              className="t-eyebrow"
-              style={{ margin: "28px 0 12px", fontSize: 11 }}>
+            <p className="t-eyebrow" style={{ margin: "28px 0 12px", fontSize: 11 }}>
               Pick a time
             </p>
             <div className="t-slots" role="radiogroup" aria-label="Pick a time">
-              {SLOTS_PER_DAY.map((slot) => {
-                const slotIso = (() => {
-                  const [h, m] = slot.split(":").map(Number);
-                  const d = new Date(pickedDate);
-                  d.setHours(h, m, 0, 0);
-                  return d.toISOString();
-                })();
+              {slots.map((slot) => {
+                const [h, m] = slot.split(":").map(Number);
+                const d = new Date(pickedDate);
+                d.setHours(h, m, 0, 0);
+                const slotIso = d.toISOString();
                 return (
                   <button
                     key={slot}

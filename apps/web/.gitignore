@@ -72,3 +72,7 @@ public/app-store
 certificates
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Payload CMS
+/media
+payload-types.ts

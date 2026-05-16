@@ -3,6 +3,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
+      "@payload-config": ["./payload.config.ts"],
       "~/*": ["modules/*"],
       "@components/*": ["components/*"],
       "@pages/*": ["pages/*"],

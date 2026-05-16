@@ -90,7 +90,7 @@ export function SubscriptionCard({ sub }: { sub: SubscriptionDto }) {
             Renew now
           </a>
         ) : null}
-        <a href="/#subscriptions" className="t-btn t-btn--secondary">
+        <a href="/pricing" className="t-btn t-btn--secondary">
           Change plan
         </a>
       </div>

@@ -1,3 +1,4 @@
+import { withPayload } from "@payloadcms/next/withPayload";
 import { withBotId } from "botid/next/config";
 import { config as dotenvConfig } from "dotenv";
 import type { NextConfig } from "next";
@@ -223,6 +224,7 @@ const nextConfig = (phase: string): NextConfig => {
 
   return {
     output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
+    allowedDevOrigins: ["3000.blyss.co.ke"],
     // TRIMLY-TEMP: skip type-check + lint at build time so the Docker image can ship.
     // We've been bouncing through CI fixing one strict-mode error at a time without
     // a local type-check loop in the sandbox. Re-enable once the Trimly tree has
@@ -241,6 +243,9 @@ const nextConfig = (phase: string): NextConfig => {
     ],
     experimental: {
       optimizePackageImports: ["@calcom/ui"],
+      serverActions: {
+        allowedOrigins: ["3000.blyss.co.ke", "127.0.0.1:3000", "localhost:3000"],
+      },
     },
     productionBrowserSourceMaps: true,
     transpilePackages: [
@@ -670,4 +675,4 @@ const nextConfig = (phase: string): NextConfig => {
   };
 };
 
-export default (phase: string): NextConfig => plugins.reduce((acc, plugin) => plugin(acc), nextConfig(phase));
+export default (phase: string): NextConfig => withPayload(plugins.reduce((acc, plugin) => plugin(acc), nextConfig(phase)));

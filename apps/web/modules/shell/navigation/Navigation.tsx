@@ -61,6 +61,27 @@ const getNavigationItems = (): NavigationItemType[] => [
     href: "/more",
     icon: "ellipsis",
   },
+  {
+    name: "trimly_subscribers",
+    href: "/settings/trimly/subscribers",
+    icon: "users",
+    onlyDesktop: true,
+    isCurrent: ({ pathname }) => pathname?.startsWith("/settings/trimly/subscribers") ?? false,
+  },
+  {
+    name: "trimly_revenue",
+    href: "/settings/trimly/revenue",
+    icon: "credit-card",
+    onlyDesktop: true,
+    isCurrent: ({ pathname }) => pathname?.startsWith("/settings/trimly/revenue") ?? false,
+  },
+  {
+    name: "trimly_services",
+    href: "/settings/trimly/services",
+    icon: "scissors",
+    onlyDesktop: true,
+    isCurrent: ({ pathname }) => pathname?.startsWith("/settings/trimly/services") ?? false,
+  },
 ];
 
 const useNavigationItems = () => {

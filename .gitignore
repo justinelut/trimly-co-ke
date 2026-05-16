@@ -117,3 +117,7 @@ agents/devin-knowledge.json
 
 # pagefind
 _pagefind/
+
+# Production secrets
+.env.secret
+google-auth-secret.json

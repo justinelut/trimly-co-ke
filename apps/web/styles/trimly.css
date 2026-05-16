@@ -2487,3 +2487,20 @@
   color: var(--trimly-accent);
 }
 [data-trimly-theme] .t-auth__inbox-icon svg { width: 22px; height: 22px; }
+
+/* ─── Legal pages ─── */
+.t-legal { padding-bottom: 96px; }
+.t-container--narrow { max-width: 720px; }
+.t-legal__updated { font-size: 13px; color: var(--trimly-text-muted); margin-bottom: 48px; }
+.t-legal section { margin-bottom: 40px; }
+.t-legal h2 { font-family: var(--font-fraunces), serif; font-size: 20px; font-weight: 600; margin-bottom: 12px; color: var(--trimly-text-primary); }
+.t-legal p, .t-legal li { font-size: 16px; line-height: 1.7; color: var(--trimly-text-secondary); margin-bottom: 12px; }
+.t-legal ul { padding-left: 20px; list-style: disc; }
+.t-legal a { color: var(--trimly-accent); text-decoration: underline; text-underline-offset: 2px; }
+.t-legal a:hover { color: var(--trimly-accent-hover); }
+.t-legal__nav { margin-top: 64px; padding-top: 32px; border-top: 1px solid var(--trimly-border); display: flex; gap: 24px; }
+.t-legal__nav a { font-size: 14px; color: var(--trimly-text-muted); text-decoration: none; }
+.t-legal__nav a:hover { color: var(--trimly-accent); }
+.t-table--legal { width: 100%; border-collapse: collapse; margin: 16px 0 24px; font-size: 15px; }
+.t-table--legal th, .t-table--legal td { text-align: left; padding: 10px 16px; border-bottom: 1px solid var(--trimly-border); color: var(--trimly-text-secondary); }
+.t-table--legal th { color: var(--trimly-text-primary); font-weight: 500; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }

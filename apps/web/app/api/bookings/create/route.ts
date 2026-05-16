@@ -12,9 +12,12 @@
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { cookies, headers } from "next/headers";
 
+import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
 import prisma from "@calcom/prisma";
 
+import { buildLegacyRequest } from "@lib/buildLegacyCtx";
 import { normalisePhone } from "@lib/trimly/phone";
 import { quote } from "@lib/trimly/pricing";
 
@@ -98,23 +101,38 @@ export async function POST(req: Request) {
     );
   }
 
-  // Find-or-create the customer User by email. We attach trimlyPhone so the
-  // STK push goes to the right number on every subsequent renewal.
-  const user = await prisma.user.upsert({
-    where: { email: data.customer.email.toLowerCase() },
-    update: { name: data.customer.name, trimlyPhone: phone },
-    create: {
-      email: data.customer.email.toLowerCase(),
-      name: data.customer.name,
-      username: null,
-      trimlyPhone: phone,
-    },
-    select: { id: true },
+  // Use the logged-in session user if available; otherwise find-or-create by email.
+  const session = await getServerSession({
+    req: buildLegacyRequest(await headers(), await cookies()),
   });
+
+  let userId: number;
+  if (session?.user?.id) {
+    // Logged in — link booking to session user, update their phone
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { trimlyPhone: phone },
+    });
+    userId = session.user.id;
+  } else {
+    // Anonymous — find or create by email
+    const user = await prisma.user.upsert({
+      where: { email: data.customer.email.toLowerCase() },
+      update: { name: data.customer.name, trimlyPhone: phone },
+      create: {
+        email: data.customer.email.toLowerCase(),
+        name: data.customer.name,
+        username: null,
+        trimlyPhone: phone,
+      },
+      select: { id: true },
+    });
+    userId = user.id;
+  }
 
   const booking = await prisma.trimlyBooking.create({
     data: {
-      userId: user.id,
+      userId,
       serviceId: service.id,
       scheduledFor: new Date(data.scheduledFor),
       addressLine1: data.address.addressLine1,
@@ -130,8 +148,59 @@ export async function POST(req: Request) {
     select: { id: true },
   });
 
+  // Create a Cal.diy Booking record so it shows on the operator's calendar.
+  // This links Trimly's custom booking flow to Cal.diy's scheduling engine.
+  let calBookingUid: string | undefined;
+  const operatorUsername = process.env.TRIMLY_OPERATOR_USERNAME;
+  if (operatorUsername) {
+    try {
+      const operator = await prisma.user.findFirst({
+        where: { username: operatorUsername },
+        select: { id: true, email: true },
+      });
+      if (operator) {
+        // Find the operator's first event type to attach the booking to
+        const eventType = await prisma.eventType.findFirst({
+          where: { userId: operator.id },
+          select: { id: true, length: true, slug: true },
+        });
+        if (eventType) {
+          const startTime = new Date(data.scheduledFor);
+          const endTime = new Date(startTime.getTime() + (eventType.length ?? 45) * 60 * 1000);
+
+          const calBooking = await prisma.booking.create({
+            data: {
+              uid: `trimly-${booking.id}`,
+              title: `Trimly: ${priceQuote.serviceName} — ${data.customer.name}`,
+              startTime,
+              endTime,
+              userId: operator.id,
+              eventTypeId: eventType.id,
+              status: "PENDING",
+              location: `${data.address.addressLine1}, ${data.address.estate}, ${data.city}`,
+              description: data.address.notes || undefined,
+              attendees: {
+                create: {
+                  email: data.customer.email.toLowerCase(),
+                  name: data.customer.name,
+                  timeZone: "Africa/Nairobi",
+                },
+              },
+            },
+            select: { uid: true },
+          });
+          calBookingUid = calBooking.uid;
+        }
+      }
+    } catch (err) {
+      // Non-fatal — the Trimly booking is still valid without the Cal record
+      console.error("[bookings/create] Cal.diy booking creation failed:", err);
+    }
+  }
+
   return NextResponse.json({
     bookingId: booking.id,
+    calBookingUid,
     quote: priceQuote,
     normalisedPhone: phone,
   });

@@ -23,6 +23,7 @@ const BOOKING_LABEL: Record<BookingStatusDto, { variant: StatusVariant; text: st
 
 const SUBSCRIPTION_LABEL: Record<SubscriptionStatusDto, { variant: StatusVariant; text: string }> = {
   active: { variant: "active", text: "Active" },
+  pending: { variant: "in-progress", text: "Pending" },
   past_due: { variant: "past-due", text: "Past due" },
   cancelled: { variant: "cancelled", text: "Cancelled" },
   non_renewing: { variant: "completed", text: "Not renewing" },
