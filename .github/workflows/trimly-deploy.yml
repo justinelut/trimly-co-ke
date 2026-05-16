@@ -76,14 +76,7 @@ jobs:
           haskell: true
           large-packages: true
           docker-images: false     # we need buildx layer cache
-          swap-storage: false      # we'll create our own swap
-
-      - name: Add swap for build
-        run: |
-          sudo fallocate -l 8G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          swap-storage: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -124,7 +117,7 @@ jobs:
             NEXTAUTH_SECRET=build-time-placeholder-replaced-at-runtime
             CALENDSO_ENCRYPTION_KEY=build_time_encryption_key_32chr
             CALCOM_TELEMETRY_DISABLED=1
-            MAX_OLD_SPACE_SIZE=4096
+            MAX_OLD_SPACE_SIZE=6144
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false        # smaller manifest, faster pull on K3s
