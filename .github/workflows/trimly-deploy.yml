@@ -52,7 +52,7 @@ jobs:
     # Native ARM64 runner — builds at full speed without QEMU emulation.
     # K3s nodes are ARM, so building on an ARM runner produces the right
     # arch directly. Requires a paid GitHub plan for private repos.
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-24.04-arm-4-core
     permissions:
       contents: read
       packages: write              # required to push to GHCR
