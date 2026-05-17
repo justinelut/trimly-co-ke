@@ -115,6 +115,23 @@ async function handleChargeSuccess(rawData: unknown, ctx: HandlerContext): Promi
     rawCallback: ctx.rawPayload,
   });
 
+  // Also mark Cal.diy Payment record as paid (for event-type payments via Paystack app)
+  try {
+    const calPayment = await prisma.payment.findFirst({
+      where: { externalId: data.reference, success: false },
+      select: { id: true, bookingId: true },
+    });
+    if (calPayment) {
+      await prisma.payment.update({ where: { id: calPayment.id }, data: { success: true } });
+      if (calPayment.bookingId) {
+        await prisma.booking.update({ where: { id: calPayment.bookingId }, data: { paid: true } });
+      }
+    }
+  } catch (err) {
+    // Non-fatal — Trimly payment settlement already succeeded above
+    console.error("[webhook] Cal Payment update failed (non-fatal):", err);
+  }
+
   // Save payment method for future use (if authorization is present)
   try {
     const auth = (data as any).authorization;

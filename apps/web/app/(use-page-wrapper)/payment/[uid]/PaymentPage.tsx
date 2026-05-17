@@ -27,6 +27,12 @@ type PaymentPageProps = {
   user?: { name?: string | null; username?: string | null } | null;
 };
 
+const PaystackPaymentComponent = dynamic(
+  () =>
+    import("@calcom/web/components/apps/paystack/PaystackPaymentComponent").then((m) => m.PaystackPaymentComponent),
+  { ssr: false }
+);
+
 const PaypalPaymentComponent = dynamic(
   () =>
     import("@calcom/web/components/apps/paypal/PaypalPaymentComponent").then((m) => m.PaypalPaymentComponent),
@@ -158,6 +164,9 @@ const PaymentPage: FC<PaymentPageProps> = (props) => {
                   )}
                   {props.payment.appId === "stripe" && !props.payment.success && (
                     <div>{/* StripePaymentComponent removed */}</div>
+                  )}
+                  {props.payment.appId === "paystack" && !props.payment.success && (
+                    <PaystackPaymentComponent payment={props.payment} bookingId={props.booking.id} bookerEmail={(props.payment.data as any)?.email || ""} />
                   )}
                   {props.payment.appId === "paypal" && !props.payment.success && (
                     <PaypalPaymentComponent payment={props.payment} />
