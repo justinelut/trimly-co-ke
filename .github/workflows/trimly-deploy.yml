@@ -106,7 +106,7 @@ jobs:
             NEXTAUTH_SECRET=build-time-placeholder-replaced-at-runtime
             CALENDSO_ENCRYPTION_KEY=build_time_encryption_key_32chr
             CALCOM_TELEMETRY_DISABLED=1
-            MAX_OLD_SPACE_SIZE=6144
+            MAX_OLD_SPACE_SIZE=4096
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false

@@ -267,7 +267,7 @@ const nextConfig = (phase: string): NextConfig => {
     images: {
       unoptimized: true,
     },
-    turbopack: {},
+    ...(process.env.NODE_ENV === "development" ? { turbopack: {} } : {}),
     async rewrites() {
       const { orgSlug } = nextJsOrgRewriteConfig;
       const beforeFiles = [
