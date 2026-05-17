@@ -267,7 +267,6 @@ const nextConfig = (phase: string): NextConfig => {
     images: {
       unoptimized: true,
     },
-    turbopack: {},
     async rewrites() {
       const { orgSlug } = nextJsOrgRewriteConfig;
       const beforeFiles = [
