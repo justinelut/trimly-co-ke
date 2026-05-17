@@ -49,65 +49,67 @@ jobs:
   # ---------------------------------------------------------------------------
   build:
     name: Build & push image
-    # Build directly on the ARM server (free plan can't handle this monorepo)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
     outputs:
-      image-tag: ${{ steps.tag.outputs.tag }}
+      image-tag: ${{ steps.meta.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Compute short SHA tag
-        id: tag
-        run: echo "tag=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
-
-      - name: Build on ARM server via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Free disk space on runner
+        uses: jlumbroso/free-disk-space@main
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE_TAG,GHCR_USER,GHCR_TOKEN
-          command_timeout: 30m
-          script: |
-            set -e
-            cd /opt/trimly-co-ke
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: true
 
-            # Update code (repo already cloned from previous deploys)
-            git remote set-url origin https://${GHCR_USER}:${GHCR_TOKEN}@github.com/justinelut/trimly-co-ke.git || true
-            git fetch origin main
-            git reset --hard origin/main
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-            # Login to GHCR
-            echo "${GHCR_TOKEN}" | sudo docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-            # Build natively on ARM
-            sudo docker build \
-              --build-arg BUILD_STANDALONE=true \
-              --build-arg NEXT_PUBLIC_WEBAPP_URL=https://trimly.co.ke \
-              --build-arg NEXT_PUBLIC_API_V2_URL=https://trimly.co.ke/api \
-              --build-arg DATABASE_URL=postgres://build:build@localhost:5432/build \
-              --build-arg NEXTAUTH_SECRET=build-time-placeholder-replaced-at-runtime \
-              --build-arg CALENDSO_ENCRYPTION_KEY=build_time_encryption_key_32chr \
-              --build-arg CALCOM_TELEMETRY_DISABLED=1 \
-              --build-arg MAX_OLD_SPACE_SIZE=6144 \
-              -t ghcr.io/justinelut/trimly-co-ke:${IMAGE_TAG} \
-              -t ghcr.io/justinelut/trimly-co-ke:latest \
-              -f Dockerfile .
+      - name: Compute image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=,format=short,priority=1000
+            type=raw,value=latest,enable={{is_default_branch}},priority=100
 
-            # Push to GHCR
-            sudo docker push ghcr.io/justinelut/trimly-co-ke:${IMAGE_TAG}
-            sudo docker push ghcr.io/justinelut/trimly-co-ke:latest
-
-            # Cleanup old images
-            sudo docker image prune -f
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_STANDALONE=true
+            NEXT_PUBLIC_WEBAPP_URL=https://trimly.co.ke
+            NEXT_PUBLIC_API_V2_URL=https://trimly.co.ke/api
+            DATABASE_URL=postgres://build:build@localhost:5432/build
+            NEXTAUTH_SECRET=build-time-placeholder-replaced-at-runtime
+            CALENDSO_ENCRYPTION_KEY=build_time_encryption_key_32chr
+            CALCOM_TELEMETRY_DISABLED=1
+            MAX_OLD_SPACE_SIZE=6144
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
 
   # ---------------------------------------------------------------------------
   # 2. Deploy to K3s via SSH (appleboy actions — handle keepalive internally)
