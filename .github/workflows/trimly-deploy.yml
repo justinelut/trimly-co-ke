@@ -80,13 +80,10 @@ jobs:
             set -e
             cd /opt/trimly-co-ke
 
-            # Pull latest code
-            if [ ! -d .git ]; then
-              git clone https://${GHCR_USER}:${GHCR_TOKEN}@github.com/justinelut/trimly-co-ke.git .
-            else
-              git fetch origin main
-              git reset --hard origin/main
-            fi
+            # Update code (repo already cloned from previous deploys)
+            git remote set-url origin https://${GHCR_USER}:${GHCR_TOKEN}@github.com/justinelut/trimly-co-ke.git || true
+            git fetch origin main
+            git reset --hard origin/main
 
             # Login to GHCR
             echo "${GHCR_TOKEN}" | sudo docker login ghcr.io -u "${GHCR_USER}" --password-stdin
