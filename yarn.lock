@@ -3259,6 +3259,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@calcom/paystackpayment@workspace:packages/app-store/paystackpayment":
+  version: 0.0.0-use.local
+  resolution: "@calcom/paystackpayment@workspace:packages/app-store/paystackpayment"
+  languageName: unknown
+  linkType: soft
+
 "@calcom/ping@workspace:packages/app-store/ping":
   version: 0.0.0-use.local
   resolution: "@calcom/ping@workspace:packages/app-store/ping"
