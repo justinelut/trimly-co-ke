@@ -205,9 +205,10 @@ jobs:
               echo "::error::Staged env file is missing or empty at $ENV_FILE"
               exit 1
             fi
+            # Append Google creds (JSON can't go in env-file directly due to = in URLs)
+            printf 'GOOGLE_API_CREDENTIALS=%s\n' "$GOOGLE_CREDS" >> "$ENV_FILE"
             sudo kubectl create secret generic trimly-co-ke-secret -n "$NS" \
               --from-env-file="$ENV_FILE" \
-              --from-literal="GOOGLE_API_CREDENTIALS=${GOOGLE_CREDS}" \
               --dry-run=client -o yaml \
               | sudo kubectl apply -f -
             echo "==> trimly-co-ke-secret synced from $(wc -l < $ENV_FILE) env lines"
