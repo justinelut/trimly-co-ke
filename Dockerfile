@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM --platform=$BUILDPLATFORM node:20 AS builder
 
 WORKDIR /calcom
@@ -42,13 +43,16 @@ COPY packages ./packages
 
 RUN yarn config set httpTimeout 1200000
 RUN npx turbo prune --scope=@calcom/web --scope=@calcom/trpc --docker
-RUN yarn install
+RUN --mount=type=cache,target=/calcom/node_modules/.cache \
+    --mount=type=cache,target=/root/.yarn/berry/cache \
+    yarn install
 # Build and make embed servable from web/public/embed folder
 RUN yarn workspace @calcom/trpc run build
 RUN yarn --cwd packages/embeds/embed-core workspace @calcom/embed-core run build
 RUN yarn --cwd apps/web workspace @calcom/web run copy-app-store-static
-RUN yarn --cwd apps/web workspace @calcom/web run build
-RUN rm -rf node_modules/.cache .yarn/cache apps/web/.next/cache
+RUN --mount=type=cache,target=/calcom/apps/web/.next/cache \
+    yarn --cwd apps/web workspace @calcom/web run build
+RUN rm -rf node_modules/.cache .yarn/cache
 
 FROM node:20 AS builder-two
 
