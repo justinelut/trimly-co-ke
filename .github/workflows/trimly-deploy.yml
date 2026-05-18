@@ -77,6 +77,13 @@ jobs:
           command_timeout: 30m
           script: |
             set -e
+
+            # Ensure repo exists on server
+            if [ ! -d /opt/trimly-co-ke/.git ]; then
+              sudo rm -rf /opt/trimly-co-ke
+              git clone https://${GHCR_USER}:${GHCR_TOKEN}@github.com/justinelut/trimly-co-ke.git /opt/trimly-co-ke
+            fi
+
             cd /opt/trimly-co-ke
 
             # Update code
