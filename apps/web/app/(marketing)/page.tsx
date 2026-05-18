@@ -19,8 +19,6 @@ import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
 import { buildLegacyRequest } from "@lib/buildLegacyCtx";
 
 import { BillingToggle } from "./_components/BillingToggle";
-import { ScrollHeader } from "./_components/ScrollHeader";
-import { ThemeToggle } from "./_components/ThemeToggle";
 
 export const metadata = {
   title: "Trimly — Premium house-call barber. Nakuru. Nairobi by appointment.",
@@ -39,15 +37,6 @@ export const metadata = {
 // shipping in /public keeps the path simple and the image edge-cacheable.
 const HERO_IMAGE = "/img/hero.jpg";
 
-function parseOperatorEmails(): Set<string> {
-  return new Set(
-    (process.env.TRIMLY_OPERATOR_EMAILS ?? "")
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean)
-  );
-}
-
 export default async function MarketingPage() {
   // Route signed-in users to the right Trimly surface — NEVER to cal.diy's
   // /event-types dashboard, which would expose cal chrome to Trimly customers.
@@ -57,34 +46,6 @@ export default async function MarketingPage() {
 
   return (
     <>
-      {/* ===================================================== */}
-      {/* HEADER                                                */}
-      {/* ===================================================== */}
-      <ScrollHeader>
-        <Link href="/" className="t-wordmark">
-          Trim<em>ly</em>
-        </Link>
-        <nav className="t-nav" aria-label="Primary">
-          <Link href="/services">Services</Link>
-          <Link href="/pricing">Pricing</Link>
-          <Link href="/areas">Areas</Link>
-          <Link href="/stories">Stories</Link>
-          {session?.user ? (
-            <Link href={parseOperatorEmails().has(session.user.email?.toLowerCase() ?? "") ? "/event-types" : "/account"}>
-              Dashboard
-            </Link>
-          ) : (
-            <Link href="/login">Login</Link>
-          )}
-        </nav>
-        <div className="t-header__cta">
-          <ThemeToggle />
-          <Link href="/book" className="t-btn t-btn--primary">
-            Book a cut
-          </Link>
-        </div>
-      </ScrollHeader>
-
       {/* ===================================================== */}
       {/* HERO                                                  */}
       {/* ===================================================== */}

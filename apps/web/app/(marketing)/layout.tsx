@@ -14,6 +14,8 @@ import type { ReactNode } from "react";
 
 import "../../styles/trimly.css";
 
+import { SiteHeader } from "./_components/SiteHeader";
+
 const fraunces = Fraunces({
   subsets: ["latin"],
   weight: ["400", "600", "700", "800"],
@@ -26,6 +28,7 @@ const fraunces = Fraunces({
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
     <div className={fraunces.variable} data-trimly-theme="dark">
+      <SiteHeader />
       {children}
     </div>
   );
