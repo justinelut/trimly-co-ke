@@ -176,14 +176,14 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           IMAGE_TAG: ${{ needs.build.outputs.image-tag }}
-          # GHCR pull credentials — auto-issued, zero setup.
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_PULL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOOGLE_CREDS: ${{ secrets.GOOGLE_API_CREDENTIALS }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE_TAG,GHCR_USERNAME,GHCR_PULL_TOKEN
+          envs: IMAGE_TAG,GHCR_USERNAME,GHCR_PULL_TOKEN,GOOGLE_CREDS
           command_timeout: 12m
           script: |
             set -e
@@ -207,6 +207,7 @@ jobs:
             fi
             sudo kubectl create secret generic trimly-co-ke-secret -n "$NS" \
               --from-env-file="$ENV_FILE" \
+              --from-literal="GOOGLE_API_CREDENTIALS=${GOOGLE_CREDS}" \
               --dry-run=client -o yaml \
               | sudo kubectl apply -f -
             echo "==> trimly-co-ke-secret synced from $(wc -l < $ENV_FILE) env lines"
