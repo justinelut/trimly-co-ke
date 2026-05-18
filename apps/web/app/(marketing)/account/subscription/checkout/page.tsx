@@ -15,7 +15,7 @@ export const metadata = { title: "Checkout · Trimly" };
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  searchParams: Promise<{ plan?: string }>;
+  searchParams: Promise<{ plan?: string; billing?: string }>;
 }
 
 export default async function CheckoutPage({ searchParams }: PageProps) {
@@ -38,6 +38,10 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
     );
   }
 
+  const billing = sp.billing === "yearly" ? "yearly" : "monthly";
+  const priceKES = billing === "yearly" ? plan.priceKES * 10 : plan.priceKES;
+  const interval = billing === "yearly" ? "yr" : "mo";
+
   return (
     <main className="t-dash">
       <AccountHeader customerName={customer.name} current="subscription" />
@@ -45,9 +49,9 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
         <p className="t-eyebrow t-eyebrow--accent">Checkout</p>
         <h2 className="t-section-title" style={{ marginBottom: 8 }}>Trimly {plan.name}</h2>
         <p className="t-step__intro">
-          {plan.cutsPerMonth} cuts per month · KES {plan.priceKES.toLocaleString("en-KE")}/mo
+          {plan.cutsPerMonth} cuts per month · KES {priceKES.toLocaleString("en-KE")}/{interval}
         </p>
-        <SubscribeButton planSlug={plan.slug} planName={plan.name} priceKES={plan.priceKES} email={customer.email} />
+        <SubscribeButton planSlug={plan.slug} planName={plan.name} priceKES={priceKES} email={customer.email} billing={billing} />
         <p style={{ marginTop: 16, fontSize: 13, color: "var(--trimly-text-muted)" }}>
           M-Pesa: approve the STK prompt on your phone. Card: encrypted on this page — Trimly never sees the number.
         </p>

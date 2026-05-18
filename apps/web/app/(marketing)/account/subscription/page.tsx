@@ -16,7 +16,7 @@ export const metadata = { title: "Subscription · Trimly" };
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  searchParams: Promise<{ plan?: string; status?: string }>;
+  searchParams: Promise<{ plan?: string; billing?: string; status?: string }>;
 }
 
 export default async function SubscriptionPage({ searchParams }: PageProps) {
@@ -40,15 +40,19 @@ export default async function SubscriptionPage({ searchParams }: PageProps) {
       );
     }
 
+    const billing = sp.billing === "yearly" ? "yearly" : "monthly";
+    const displayPrice = billing === "yearly" ? plan.priceKES * 10 : plan.priceKES;
+    const interval = billing === "yearly" ? "yr" : "mo";
+
     return (
       <main className="t-dash">
         <AccountHeader customerName={customer.name} current="subscription" />
         <div style={{ maxWidth: 480, margin: "0 auto", padding: "48px 0" }}>
           <p className="t-eyebrow t-eyebrow--accent">Subscribe</p>
           <h2 className="t-section-title" style={{ marginBottom: 8 }}>Trimly {plan.name}</h2>
-          <p className="t-step__intro">{plan.cutsPerMonth} cuts per month · KES {plan.priceKES.toLocaleString("en-KE")}/mo</p>
+          <p className="t-step__intro">{plan.cutsPerMonth} cuts per month · KES {displayPrice.toLocaleString("en-KE")}/{interval}</p>
           <Link
-            href={`/account/subscription/checkout?plan=${plan.slug}`}
+            href={`/account/subscription/checkout?plan=${plan.slug}&billing=${billing}`}
             className="t-btn t-btn--primary t-btn--lg"
             style={{ width: "100%", justifyContent: "center", marginTop: 24 }}>
             Continue to payment

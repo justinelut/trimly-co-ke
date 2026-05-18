@@ -23,6 +23,22 @@ export function BillingToggle() {
       const value = el.dataset[period];
       if (value) el.textContent = value;
     });
+    // Update was prices
+    document.querySelectorAll<HTMLElement>("[data-monthly-was][data-yearly-was]").forEach((el) => {
+      const key = period === "monthly" ? "monthlyWas" : "yearlyWas";
+      const value = el.dataset[key];
+      if (value) el.textContent = `was ${value}`;
+    });
+    // Update interval text
+    document.querySelectorAll<HTMLElement>(".t-plan__interval").forEach((el) => {
+      el.textContent = period === "monthly" ? " / month" : " / year";
+    });
+    // Update CTA links to include billing period
+    document.querySelectorAll<HTMLAnchorElement>("a.t-plan__cta").forEach((el) => {
+      const url = new URL(el.href, window.location.origin);
+      url.searchParams.set("billing", period);
+      el.href = url.pathname + url.search;
+    });
   }, [period]);
 
   return (

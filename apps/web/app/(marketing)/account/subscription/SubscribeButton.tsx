@@ -17,11 +17,13 @@ export function SubscribeButton({
   planName,
   priceKES,
   email,
+  billing = "monthly",
 }: {
   planSlug: string;
   planName: string;
   priceKES: number;
   email: string;
+  billing?: "monthly" | "yearly";
 }) {
   const [method, setMethod] = useState<PaymentMethod>("mpesa");
   const [phone, setPhone] = useState("");
@@ -80,7 +82,7 @@ export function SubscribeButton({
       const checkoutRes = await fetch("/api/account/subscription/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planSlug, billing: "monthly" }),
+        body: JSON.stringify({ planSlug, billing }),
       });
       const checkoutData = await checkoutRes.json();
       if (!checkoutRes.ok) throw new Error(checkoutData.error || "Checkout failed");
@@ -309,7 +311,7 @@ export function SubscribeButton({
         style={{ width: "100%", justifyContent: "center" }}>
         {stage === "sending"
           ? "Sending…"
-          : `Pay KES ${priceKES.toLocaleString("en-KE")}/mo with ${method === "mpesa" ? "M-Pesa" : "Card"}`}
+          : `Pay KES ${priceKES.toLocaleString("en-KE")}/${billing === "yearly" ? "yr" : "mo"} with ${method === "mpesa" ? "M-Pesa" : "Card"}`}
       </button>
 
       {error && <p className="t-field__hint t-field__hint--error" style={{ marginTop: 8 }}>{error}</p>}
