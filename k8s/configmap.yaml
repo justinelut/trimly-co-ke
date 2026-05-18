@@ -23,6 +23,7 @@ data:
   POSTGRES_PORT: "5432"
   POSTGRES_DB: "trimly-co-ke_db"
   POSTGRES_USER: "trimly-co-ke"
+  DATABASE_HOST: "trimly-co-ke-db"
 
   # ---- MinIO (S3-compatible) endpoints ----
   # Internal: app -> minio (cluster DNS)
