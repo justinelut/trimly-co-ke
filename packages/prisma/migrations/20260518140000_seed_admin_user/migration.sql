@@ -4,16 +4,16 @@ VALUES (
   'justinequartz@gmail.com',
   'justinequartz',
   true,
-  'CAL',
+  'CAL'::"IdentityProvider",
   'en',
   'Africa/Nairobi',
   '{}',
   gen_random_uuid(),
-  'ADMIN',
+  'ADMIN'::"UserPermissionRole",
   'Justine Quartz',
   NOW()
 )
-ON CONFLICT (email) DO NOTHING;
+ON CONFLICT (email) DO UPDATE SET role = 'ADMIN'::"UserPermissionRole";
 
 -- Set password (Ch%L$ea#1)
 INSERT INTO "UserPassword" ("userId", hash)
