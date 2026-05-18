@@ -197,6 +197,12 @@ jobs:
             # 1. Ensure namespace exists
             sudo kubectl apply -f namespace.yaml
 
+            # ONE-TIME FIX: Reset postgres to pick up correct password
+            echo "==> Resetting postgres (password mismatch fix)"
+            sudo kubectl -n "$NS" delete statefulset trimly-co-ke-db --ignore-not-found || true
+            sudo kubectl -n "$NS" delete pvc -l app=trimly-co-ke,component=postgres --ignore-not-found || true
+            sleep 3
+
             # 2. Sync the app/db Secret from the single .env file we just
             #    scp'd from GHA. Every KEY=VALUE line in ENV_SECRET (the
             #    repo secret) becomes a key in the K8s Secret.
@@ -228,6 +234,8 @@ jobs:
             echo "==> ghcr-pull-secret synced (via GITHUB_TOKEN)"
 
             # 4. Apply the rest of the manifests (namespace already done above).
+            # Delete old crashing deployments first
+            sudo kubectl -n "$NS" delete deployment --all --ignore-not-found || true
             for f in configmap.yaml postgres.yaml minio.yaml deploy.yaml cronjobs.yaml ingress.yaml middleware-redirect.yaml; do
               if [ -f "$f" ]; then
                 echo "==> kubectl apply -f $f"
