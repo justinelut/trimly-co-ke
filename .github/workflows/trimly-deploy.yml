@@ -194,7 +194,12 @@ jobs:
             LABEL=app=trimly-co-ke
             ENV_FILE=/opt/trimly-co-ke/k8s/trimly.env.secret
 
-            # 1. Ensure namespace exists before secrets are created.
+            # NUKE: Delete entire namespace and start fresh
+            echo "==> Deleting namespace $NS (full reset)"
+            sudo kubectl delete namespace "$NS" --ignore-not-found --timeout=60s || true
+            sleep 5
+
+            # 1. Recreate namespace
             sudo kubectl apply -f namespace.yaml
 
             # 2. Sync the app/db Secret from the single .env file we just
