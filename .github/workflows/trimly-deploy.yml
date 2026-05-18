@@ -95,7 +95,6 @@ jobs:
             # Login to GHCR
             echo "${GHCR_TOKEN}" | sudo docker login ghcr.io -u "${GHCR_USER}" --password-stdin
 
-            # Build natively on ARM using the original Dockerfile
             sudo DOCKER_BUILDKIT=1 docker build \
               --build-arg NEXT_PUBLIC_WEBAPP_URL=https://trimly.co.ke \
               --build-arg NEXT_PUBLIC_API_V2_URL=https://trimly.co.ke/api \
