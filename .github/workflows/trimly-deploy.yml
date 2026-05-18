@@ -81,7 +81,8 @@ jobs:
             # Ensure repo exists on server
             if [ ! -d /opt/trimly-co-ke/.git ]; then
               sudo rm -rf /opt/trimly-co-ke
-              git clone https://${GHCR_USER}:${GHCR_TOKEN}@github.com/justinelut/trimly-co-ke.git /opt/trimly-co-ke
+              sudo git clone https://${GHCR_USER}:${GHCR_TOKEN}@github.com/justinelut/trimly-co-ke.git /opt/trimly-co-ke
+              sudo chown -R ubuntu:ubuntu /opt/trimly-co-ke
             fi
 
             cd /opt/trimly-co-ke
