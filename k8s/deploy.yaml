@@ -32,28 +32,6 @@ spec:
       # package visibility is set to public on GitHub.
       imagePullSecrets:
         - name: ghcr-pull-secret
-      initContainers:
-        - name: prisma-migrate
-          image: ghcr.io/justinelut/trimly-co-ke:latest
-          imagePullPolicy: Always
-          command:
-            - node
-            - node_modules/prisma/build/index.js
-            - migrate
-            - deploy
-            - --schema=packages/prisma/schema.prisma
-          envFrom:
-            - configMapRef:
-                name: trimly-co-ke-config
-            - secretRef:
-                name: trimly-co-ke-secret
-          resources:
-            requests:
-              cpu: "100m"
-              memory: "256Mi"
-            limits:
-              cpu: "500m"
-              memory: "512Mi"
       containers:
         - name: web
           # Image tag is overwritten on every deploy by GitHub Actions:
