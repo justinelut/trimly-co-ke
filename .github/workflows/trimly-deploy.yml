@@ -135,7 +135,6 @@ jobs:
           build-args: |
             NEXT_PUBLIC_WEBAPP_URL=https://trimly.co.ke
           provenance: false
-          provenance: false
 
   # ---------------------------------------------------------------------------
   # 2. Deploy to K3s via SSH (appleboy actions — handle keepalive internally)
