@@ -194,12 +194,7 @@ jobs:
             LABEL=app=trimly-co-ke
             ENV_FILE=/opt/trimly-co-ke/k8s/trimly.env.secret
 
-            # NUKE: Delete entire namespace and start fresh
-            echo "==> Deleting namespace $NS (full reset)"
-            sudo kubectl delete namespace "$NS" --ignore-not-found --timeout=60s || true
-            sleep 5
-
-            # 1. Recreate namespace
+            # 1. Ensure namespace exists
             sudo kubectl apply -f namespace.yaml
 
             # 2. Sync the app/db Secret from the single .env file we just
@@ -260,6 +255,10 @@ jobs:
                 --sort-by=.metadata.creationTimestamp \
                 -o jsonpath='{.items[-1:].metadata.name}' 2>/dev/null || echo "")
               if [ -n "$POD" ]; then
+                echo "---- container logs (last 30 lines) ----"
+                sudo kubectl -n "$NS" logs "$POD" --tail=30 2>/dev/null || true
+                echo "---- previous container logs (last 30 lines) ----"
+                sudo kubectl -n "$NS" logs "$POD" --previous --tail=30 2>/dev/null || true
                 sudo kubectl -n "$NS" describe pod "$POD" 2>/dev/null \
                   | awk '/^Events:/,0' | head -n 12 || true
               fi
