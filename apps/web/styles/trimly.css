@@ -2523,8 +2523,8 @@
   [data-trimly-theme] .t-header__cta { display: none; }
 }
 
-/* Sheet overlay */
-[data-trimly-theme] .t-sheet-overlay {
+/* Sheet overlay — portals to body, so no [data-trimly-theme] prefix */
+.t-sheet-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
@@ -2534,27 +2534,30 @@
 }
 
 /* Sheet panel */
-[data-trimly-theme] .t-sheet {
+.t-sheet {
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
   width: min(360px, 85vw);
-  background: var(--trimly-bg);
-  border-left: 1px solid var(--trimly-border);
+  background: #0a0a0a;
+  border-left: 1px solid rgba(255,255,255,0.08);
   z-index: 9999;
   display: flex;
   flex-direction: column;
   animation: trimly-slide-in 0.25s ease;
   padding: 24px;
+  color: #f5f5f5;
 }
-[data-trimly-theme] .t-sheet__header {
+.t-sheet__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 32px;
 }
-[data-trimly-theme] .t-sheet__close {
+.t-sheet__header .t-wordmark { color: #f5f5f5; text-decoration: none; font-size: 1.4rem; font-weight: 700; }
+.t-sheet__header .t-wordmark em { font-style: italic; }
+.t-sheet__close {
   width: 36px;
   height: 36px;
   display: flex;
@@ -2563,36 +2566,36 @@
   border: none;
   background: none;
   cursor: pointer;
-  color: var(--trimly-text-secondary);
+  color: #999;
   border-radius: 8px;
   transition: background 0.15s;
 }
-[data-trimly-theme] .t-sheet__close:hover { background: var(--trimly-surface); }
-[data-trimly-theme] .t-sheet__close svg { width: 20px; height: 20px; }
+.t-sheet__close:hover { background: rgba(255,255,255,0.06); }
+.t-sheet__close svg { width: 20px; height: 20px; }
 
-[data-trimly-theme] .t-sheet__nav {
+.t-sheet__nav {
   display: flex;
   flex-direction: column;
   gap: 4px;
   flex: 1;
 }
-[data-trimly-theme] .t-sheet__nav a {
+.t-sheet__nav a {
   display: block;
   padding: 14px 16px;
   font-size: 17px;
   font-weight: 500;
-  color: var(--trimly-text-primary);
+  color: #f5f5f5;
   text-decoration: none;
   border-radius: 10px;
   transition: background 0.15s;
 }
-[data-trimly-theme] .t-sheet__nav a:hover {
-  background: var(--trimly-surface);
+.t-sheet__nav a:hover {
+  background: rgba(255,255,255,0.06);
 }
 
-[data-trimly-theme] .t-sheet__footer {
+.t-sheet__footer {
   padding-top: 24px;
-  border-top: 1px solid var(--trimly-border);
+  border-top: 1px solid rgba(255,255,255,0.08);
 }
 
 @keyframes trimly-fade-in {
