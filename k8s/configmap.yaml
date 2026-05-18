@@ -42,6 +42,8 @@ data:
   APP_REGION: "KE"
   APP_TIMEZONE: "Africa/Nairobi"
   APP_CURRENCY: "KES"
+  EMAIL_FROM: "hello@trimly.co.ke"
+  EMAIL_FROM_NAME: "Trimly"
 
   # ---- Public Paystack key (intentionally public; safe to expose to the browser) ----
   # The secret PAYSTACK_SECRET_KEY stays in trimly-co-ke-secret.

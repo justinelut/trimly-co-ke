@@ -34,7 +34,7 @@ spec:
         - name: ghcr-pull-secret
       initContainers:
         - name: prisma-migrate
-          image: ghcr.io/OWNER/trimly-co-ke:latest
+          image: ghcr.io/justinelut/trimly-co-ke:latest
           imagePullPolicy: Always
           command:
             - node
@@ -58,7 +58,7 @@ spec:
         - name: web
           # Image tag is overwritten on every deploy by GitHub Actions:
           #   kubectl set image deployment/trimly-co-ke-deployment web=ghcr.io/<owner>/trimly-co-ke:<sha>
-          image: ghcr.io/OWNER/trimly-co-ke:latest
+          image: ghcr.io/justinelut/trimly-co-ke:latest
           imagePullPolicy: Always
           ports:
             - name: http
