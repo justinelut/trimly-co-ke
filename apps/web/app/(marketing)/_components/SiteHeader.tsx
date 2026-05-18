@@ -5,6 +5,7 @@ import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
 
 import { buildLegacyRequest } from "@lib/buildLegacyCtx";
 
+import { MobileMenu } from "./MobileMenu";
 import { ScrollHeader } from "./ScrollHeader";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -22,6 +23,9 @@ export async function SiteHeader() {
     req: buildLegacyRequest(await headers(), await cookies()),
   });
 
+  const isLoggedIn = !!session?.user;
+  const isOperator = isLoggedIn && parseOperatorEmails().has(session.user.email?.toLowerCase() ?? "");
+
   return (
     <ScrollHeader>
       <Link href="/" className="t-wordmark">
@@ -32,10 +36,8 @@ export async function SiteHeader() {
         <Link href="/pricing">Pricing</Link>
         <Link href="/areas">Areas</Link>
         <Link href="/stories">Stories</Link>
-        {session?.user ? (
-          <Link href={parseOperatorEmails().has(session.user.email?.toLowerCase() ?? "") ? "/event-types" : "/account"}>
-            Dashboard
-          </Link>
+        {isLoggedIn ? (
+          <Link href={isOperator ? "/event-types" : "/account"}>Dashboard</Link>
         ) : (
           <Link href="/login">Login</Link>
         )}
@@ -46,6 +48,7 @@ export async function SiteHeader() {
           Book a cut
         </Link>
       </div>
+      <MobileMenu isLoggedIn={isLoggedIn} isOperator={isOperator} />
     </ScrollHeader>
   );
 }

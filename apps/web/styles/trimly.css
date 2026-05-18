@@ -2504,3 +2504,102 @@
 .t-table--legal { width: 100%; border-collapse: collapse; margin: 16px 0 24px; font-size: 15px; }
 .t-table--legal th, .t-table--legal td { text-align: left; padding: 10px 16px; border-bottom: 1px solid var(--trimly-border); color: var(--trimly-text-secondary); }
 .t-table--legal th { color: var(--trimly-text-primary); font-weight: 500; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ─── Mobile Menu ─── */
+[data-trimly-theme] .t-mobile-menu-trigger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--trimly-text-primary);
+}
+[data-trimly-theme] .t-mobile-menu-trigger svg { width: 22px; height: 22px; }
+@media (max-width: 900px) {
+  [data-trimly-theme] .t-mobile-menu-trigger { display: flex; }
+  [data-trimly-theme] .t-header__cta { display: none; }
+}
+
+/* Sheet overlay */
+[data-trimly-theme] .t-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 9998;
+  animation: trimly-fade-in 0.2s ease;
+}
+
+/* Sheet panel */
+[data-trimly-theme] .t-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(360px, 85vw);
+  background: var(--trimly-bg);
+  border-left: 1px solid var(--trimly-border);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  animation: trimly-slide-in 0.25s ease;
+  padding: 24px;
+}
+[data-trimly-theme] .t-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+[data-trimly-theme] .t-sheet__close {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--trimly-text-secondary);
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+[data-trimly-theme] .t-sheet__close:hover { background: var(--trimly-surface); }
+[data-trimly-theme] .t-sheet__close svg { width: 20px; height: 20px; }
+
+[data-trimly-theme] .t-sheet__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+[data-trimly-theme] .t-sheet__nav a {
+  display: block;
+  padding: 14px 16px;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--trimly-text-primary);
+  text-decoration: none;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+[data-trimly-theme] .t-sheet__nav a:hover {
+  background: var(--trimly-surface);
+}
+
+[data-trimly-theme] .t-sheet__footer {
+  padding-top: 24px;
+  border-top: 1px solid var(--trimly-border);
+}
+
+@keyframes trimly-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes trimly-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
