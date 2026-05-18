@@ -1,0 +1,29 @@
+FROM node:20-slim AS runner
+
+WORKDIR /calcom
+
+RUN apt-get update && apt-get install -y --no-install-recommends netcat-openbsd wget && rm -rf /var/lib/apt/lists/*
+
+ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
+
+# Copy pre-built application (built on the CI runner, not inside Docker)
+COPY package.json yarn.lock .yarnrc.yml turbo.json i18n.json ./
+COPY .yarn ./.yarn
+COPY node_modules ./node_modules
+COPY packages ./packages
+COPY apps/web ./apps/web
+COPY scripts ./scripts
+
+ENV NODE_ENV=production \
+  NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL \
+  BUILT_NEXT_PUBLIC_WEBAPP_URL=$NEXT_PUBLIC_WEBAPP_URL
+
+RUN chmod +x scripts/* 2>/dev/null || true
+RUN scripts/replace-placeholder.sh http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER ${NEXT_PUBLIC_WEBAPP_URL} 2>/dev/null || true
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=30s --retries=5 \
+  CMD wget --spider http://localhost:3000 || exit 1
+
+CMD ["/calcom/scripts/start.sh"]

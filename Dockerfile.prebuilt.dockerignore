@@ -1,0 +1,9 @@
+.git
+.github
+.gitignore
+*.md
+.env*
+docker-compose.yml
+k8s/
+.yarn/cache
+apps/web/.next/cache
