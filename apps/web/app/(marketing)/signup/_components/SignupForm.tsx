@@ -1,17 +1,16 @@
 "use client";
 
 /**
- * LoginForm — programmatic NextAuth signIn for the Trimly /login page.
+ * SignupForm — captures name + email + optional phone, persists via
+ * POST /api/auth/trimly-signup, then triggers the magic-link flow.
  *
  * Path:
- *   1. Customer types email
- *   2. We call signIn("email", { email, redirect: false, callbackUrl })
- *   3. NextAuth fires our overridden sendVerificationRequest, which sends
- *      the magic link via Resend + MagicLinkEmail
- *   4. We show the "check your inbox" state
+ *   1. User fills name + email + (optional) phone
+ *   2. POST /api/auth/trimly-signup to upsert the User row
+ *   3. On success, signIn("email", { email }) to send the magic link
+ *   4. Show "check your inbox" state
  *
- * Google sign-in (if cal has the provider configured) is one button:
- *   signIn("google", { callbackUrl })
+ * Google sign-up is also available as a one-click alternative.
  */
 import { signIn } from "next-auth/react";
 import { useState } from "react";
@@ -21,34 +20,59 @@ interface Props {
   initialError?: string;
 }
 
-export function LoginForm({ callbackUrl, initialError }: Props) {
+export function SignupForm({ callbackUrl, initialError }: Props) {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [stage, setStage] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [phone, setPhone] = useState("");
+  const [stage, setStage] = useState<"idle" | "submitting" | "sent" | "error">("idle");
   const [error, setError] = useState<string | null>(initialError ?? null);
 
   const target = callbackUrl ?? "/account/upcoming";
 
-  async function sendMagicLink(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!name.trim()) {
+      setError("Please enter your name.");
+      return;
+    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("That email doesn't look right.");
       return;
     }
-    setStage("sending");
+
+    setStage("submitting");
+
     try {
-      const result = await signIn("email", {
+      const res = await fetch("/api/auth/trimly-signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.toLowerCase().trim(),
+          phone: phone.trim() || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.message ?? data?.error ?? "Could not create account");
+      }
+
+      const signInResult = await signIn("email", {
         email: email.toLowerCase().trim(),
         redirect: false,
         callbackUrl: target,
       });
-      if (!result || result.error) {
-        throw new Error(result?.error ?? "Sign-in failed");
+      if (!signInResult || signInResult.error) {
+        throw new Error(signInResult?.error ?? "Magic link failed");
       }
+
       setStage("sent");
     } catch (err) {
       setStage("error");
-      setError(err instanceof Error ? err.message : "Sign-in failed");
+      setError(err instanceof Error ? err.message : "Something went wrong");
     }
   }
 
@@ -81,12 +105,6 @@ export function LoginForm({ callbackUrl, initialError }: Props) {
           }}>
           Use a different email
         </button>
-        <p style={{ fontSize: 13, color: "var(--trimly-text-muted)", marginTop: 12 }}>
-          Prefer a password?{" "}
-          <a href="/auth/forgot-password" style={{ color: "var(--trimly-accent)", textDecoration: "none" }}>
-            Set one up
-          </a>
-        </p>
       </div>
     );
   }
@@ -94,20 +112,33 @@ export function LoginForm({ callbackUrl, initialError }: Props) {
   return (
     <>
       <div className="t-auth__head">
-        <p className="t-eyebrow t-eyebrow--accent">Welcome back</p>
+        <p className="t-eyebrow t-eyebrow--accent">Join Trimly</p>
         <h1 className="t-auth__title">
-          Sign in to <em>Trimly</em>.
+          Create your <em>account</em>.
         </h1>
         <p className="t-auth__body">
           We'll email you a one-tap sign-in link — no password to remember. The link works once and expires in 24 hours.
         </p>
       </div>
 
-      <form className="t-form" onSubmit={sendMagicLink} noValidate>
+      <form className="t-form" onSubmit={handleSubmit} noValidate>
         <div className="t-field">
-          <label htmlFor="login-email">Email</label>
+          <label htmlFor="signup-name">Full name</label>
           <input
-            id="login-email"
+            id="signup-name"
+            type="text"
+            autoComplete="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Wanjiku Kamau"
+            required
+          />
+        </div>
+
+        <div className="t-field">
+          <label htmlFor="signup-email">Email</label>
+          <input
+            id="signup-email"
             type="email"
             autoComplete="email"
             value={email}
@@ -117,10 +148,22 @@ export function LoginForm({ callbackUrl, initialError }: Props) {
           />
         </div>
 
+        <div className="t-field">
+          <label htmlFor="signup-phone">Phone (optional — for booking confirmations)</label>
+          <input
+            id="signup-phone"
+            type="tel"
+            autoComplete="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="0712 345 678"
+          />
+        </div>
+
         {error ? <p className="t-field__hint t-field__hint--error">{error}</p> : null}
 
-        <button type="submit" className="t-btn t-btn--primary t-btn--lg" disabled={stage === "sending"}>
-          {stage === "sending" ? "Sending link…" : "Email me a sign-in link"}
+        <button type="submit" className="t-btn t-btn--primary t-btn--lg" disabled={stage === "submitting"}>
+          {stage === "submitting" ? "Creating account…" : "Create account"}
         </button>
       </form>
 
@@ -137,8 +180,14 @@ export function LoginForm({ callbackUrl, initialError }: Props) {
 
       <p className="t-auth__footer">
         Prefer a password?{" "}
-        <a href="/auth/forgot-password" style={{ color: "var(--trimly-accent)", textDecoration: "none" }}>
-          Sign in with one
+        <a
+          href="/auth/forgot-password"
+          style={{ color: "var(--trimly-accent)", cursor: "pointer" }}
+          onClick={(e) => {
+            e.preventDefault();
+            window.location.href = "/auth/forgot-password";
+          }}>
+          Set one up
         </a>
       </p>
     </>

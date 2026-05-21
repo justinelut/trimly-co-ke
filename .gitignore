@@ -121,3 +121,4 @@ _pagefind/
 # Production secrets
 .env.secret
 google-auth-secret.json
+.commandcode/
