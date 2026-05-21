@@ -1,4 +1,3 @@
-import { withPayload } from "@payloadcms/next/withPayload";
 import { withBotId } from "botid/next/config";
 import { config as dotenvConfig } from "dotenv";
 import type { NextConfig } from "next";
@@ -269,9 +268,9 @@ const nextConfig = (phase: string): NextConfig => {
     },
     async rewrites() {
       const { orgSlug } = nextJsOrgRewriteConfig;
-      const beforeFiles = [
+const beforeFiles = [
         {
-          source: `/(${locales.join("|")})/:path*`,
+          source: `/${locales.join("|")}/:path*`,
           destination: "/:path*",
         },
         {
@@ -674,4 +673,4 @@ const nextConfig = (phase: string): NextConfig => {
   };
 };
 
-export default (phase: string): NextConfig => withPayload(plugins.reduce((acc, plugin) => plugin(acc), nextConfig(phase)));
+export default (phase: string): NextConfig => plugins.reduce((acc, plugin) => plugin(acc), nextConfig(phase));

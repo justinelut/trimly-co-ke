@@ -32,6 +32,7 @@ import { appDataSchema as nextcloudtalk_zod_ts } from "./nextcloudtalk/zod";
 import { appDataSchema as office365calendar_zod_ts } from "./office365calendar/zod";
 import { appDataSchema as office365video_zod_ts } from "./office365video/zod";
 import { appDataSchema as paypal_zod_ts } from "./paypal/zod";
+import { appDataSchema as paystackpayment_zod_ts } from "./paystackpayment/zod";
 import { appDataSchema as pipedrive_crm_zod_ts } from "./pipedrive-crm/zod";
 import { appDataSchema as plausible_zod_ts } from "./plausible/zod";
 import { appDataSchema as posthog_zod_ts } from "./posthog/zod";
@@ -83,6 +84,7 @@ export const appDataSchemas = {
   office365calendar: office365calendar_zod_ts,
   office365video: office365video_zod_ts,
   paypal: paypal_zod_ts,
+  paystackpayment: paystackpayment_zod_ts,
   "pipedrive-crm": pipedrive_crm_zod_ts,
   plausible: plausible_zod_ts,
   posthog: posthog_zod_ts,

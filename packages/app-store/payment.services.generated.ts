@@ -8,6 +8,6 @@ export const PaymentServiceMap = {
   hitpay: import("./hitpay/lib/PaymentService"),
   "mock-payment-app": import("./mock-payment-app/lib/PaymentService"),
   paypal: import("./paypal/lib/PaymentService"),
-  paystack: import("./paystackpayment/lib/PaymentService"),
+  paystackpayment: import("./paystackpayment/lib/PaymentService"),
   stripepayment: import("./stripepayment/lib/PaymentService"),
 };

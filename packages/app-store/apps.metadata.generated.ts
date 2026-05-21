@@ -69,6 +69,7 @@ import nextcloudtalk_config_json from "./nextcloudtalk/config.json";
 import { metadata as office365calendar__metadata_ts } from "./office365calendar/_metadata";
 import office365video_config_json from "./office365video/config.json";
 import paypal_config_json from "./paypal/config.json";
+import { metadata as paystackpayment__metadata_ts } from "./paystackpayment/_metadata";
 import ping_config_json from "./ping/config.json";
 import pipedream_config_json from "./pipedream/config.json";
 import pipedrive_crm_config_json from "./pipedrive-crm/config.json";
@@ -181,6 +182,7 @@ export const appStoreMetadata = {
   office365calendar: office365calendar__metadata_ts,
   office365video: office365video_config_json,
   paypal: paypal_config_json,
+  paystackpayment: paystackpayment__metadata_ts,
   ping: ping_config_json,
   pipedream: pipedream_config_json,
   "pipedrive-crm": pipedrive_crm_config_json,

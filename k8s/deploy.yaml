@@ -94,6 +94,33 @@ spec:
     app: trimly-co-ke
     component: web
 ---
+# Force HTTP -> HTTPS redirect
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: trimly-co-ke-https-redirect
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+---
+# Redirect www -> apex
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: trimly-co-ke-www-redirect
+  namespace: trimly-co-ke
+  labels:
+    app: trimly-co-ke
+spec:
+  redirectRegex:
+    regex: "^https?://www\\.trimly\\.co\\.ke/(.*)"
+    replacement: "https://trimly.co.ke/${1}"
+    permanent: true
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -104,7 +131,8 @@ metadata:
     component: web
   annotations:
     traefik.ingress.kubernetes.io/router.tls.certresolver: le
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.middlewares: trimly-co-ke-trimly-co-ke-https-redirect@kubernetescrd,trimly-co-ke-trimly-co-ke-www-redirect@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:
@@ -133,17 +161,3 @@ spec:
                 name: trimly-co-ke-service
                 port:
                   number: 80
----
-# Redirect www -> apex (optional but standard).
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: trimly-co-ke-www-redirect
-  namespace: trimly-co-ke
-  labels:
-    app: trimly-co-ke
-spec:
-  redirectRegex:
-    regex: "^https?://www\\.trimly\\.co\\.ke/(.*)"
-    replacement: "https://trimly.co.ke/${1}"
-    permanent: true
