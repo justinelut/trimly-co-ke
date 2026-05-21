@@ -97,6 +97,7 @@ jobs:
 
             sudo DOCKER_BUILDKIT=1 docker build \
               --build-arg NEXT_PUBLIC_WEBAPP_URL=https://trimly.co.ke \
+              --build-arg NEXTAUTH_URL=https://trimly.co.ke/api/auth \
               --build-arg NEXT_PUBLIC_API_V2_URL=https://trimly.co.ke/api \
               --build-arg DATABASE_URL=postgres://build:build@localhost:5432/build \
               --build-arg NEXTAUTH_SECRET=build-time-placeholder-replaced-at-runtime \
