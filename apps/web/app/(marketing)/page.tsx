@@ -694,8 +694,8 @@ function PlanCard({
         ))}
       </ul>
       <Link
-        href={`/account/subscription?plan=${slug}`}
-        className={`t-btn t-btn--${ctaVariant}`}
+        href={`/account/subscription?plan=${slug}&billing=monthly`}
+        className={`t-btn t-btn--${ctaVariant} t-plan__cta`}
         style={{ width: "100%", justifyContent: "center" }}>
         {ctaLabel}
       </Link>

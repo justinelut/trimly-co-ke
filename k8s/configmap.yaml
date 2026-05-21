@@ -14,7 +14,8 @@ data:
   NEXT_TELEMETRY_DISABLED: "1"
 
   # ---- Public URLs ----
-  NEXTAUTH_URL: "https://trimly.co.ke"
+  NEXT_PUBLIC_WEBAPP_URL: "https://trimly.co.ke"
+  NEXTAUTH_URL: "https://trimly.co.ke/api/auth"
   NEXT_PUBLIC_SERVER_URL: "https://trimly.co.ke"
   NEXT_PUBLIC_SITE_URL: "https://trimly.co.ke"
 
