@@ -207,6 +207,9 @@ jobs:
             fi
             # Append Google creds (JSON can't go in env-file directly due to = in URLs)
             printf 'GOOGLE_API_CREDENTIALS=%s\n' "$GOOGLE_CREDS" >> "$ENV_FILE"
+            # One-time force reset: drop & re-create all Trimly DB objects.
+            # REMOVE THESE TWO LINES AFTER THE FIRST SUCCESSFUL DEPLOY.
+            echo "TRIMLY_FORCE_RESET_DB=1" >> "$ENV_FILE"
             sudo kubectl create secret generic trimly-co-ke-secret -n "$NS" \
               --from-env-file="$ENV_FILE" \
               --dry-run=client -o yaml \
