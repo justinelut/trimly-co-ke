@@ -69,6 +69,7 @@ COPY --from=builder /calcom/node_modules ./node_modules
 COPY --from=builder /calcom/packages ./packages
 COPY --from=builder /calcom/apps/web ./apps/web
 COPY --from=builder /calcom/packages/prisma/schema.prisma ./prisma/schema.prisma
+COPY --from=builder /calcom/packages/prisma/migrations ./prisma/migrations
 COPY scripts scripts
 RUN chmod +x scripts/*
 
