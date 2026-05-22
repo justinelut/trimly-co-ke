@@ -1,9 +1,12 @@
 /**
- * /signup — Trimly-styled registration page.
+ * /register — Trimly-styled registration page.
  *
- * Server component for the chrome; delegates the form to SignupForm
- * (client component) which calls /api/auth/trimly-signup first, then
- * triggers NextAuth's magic-link flow via signIn("email", …).
+ * Uses /register instead of /signup because Cal.diy already owns
+ * /signup via (use-page-wrapper). Functionally identical.
+ *
+ * Delegates the form to SignupForm (client component) which calls
+ * /api/auth/trimly-signup first, then triggers NextAuth's magic-link
+ * flow via signIn("email", …).
  *
  * Signed-in users are redirected to /account/upcoming (or
  * /operator/today for operators).

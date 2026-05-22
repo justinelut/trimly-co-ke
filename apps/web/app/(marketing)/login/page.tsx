@@ -57,7 +57,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
       </div>
 
       <p className="t-auth__footer">
-        New to Trimly? <Link href="/signup">Create an account</Link>
+        New to Trimly? <Link href="/register">Create an account</Link>
       </p>
     </main>
   );
