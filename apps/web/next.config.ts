@@ -12,6 +12,7 @@ import {
   orgUserTypeRoutePath,
 } from "./pagesAndRewritePaths";
 import { TRIGGER_VERSION } from "./trigger.version"; // adjust path as needed
+import process from "node:process";
 
 dotenvConfig({ path: "../../.env" });
 
@@ -460,6 +461,50 @@ const beforeFiles = [
             {
               key: "Cache-Control",
               value: "public, max-age=31536000, immutable",
+            },
+          ],
+        },
+        // ---- Cloudflare-friendly static asset caching ---------------------
+        // The site sits behind Cloudflare (free tier) which honours these
+        // Cache-Control directives at the edge. /img/* and /fonts/* are
+        // hashed-or-stable assets that very rarely change, so we tell CF to
+        // cache them for a year. Next.js's own /_next/static/* already has
+        // immutable caching baked in by Next; we don't override that.
+        {
+          source: "/img/:path*",
+          headers: [
+            {
+              key: "Cache-Control",
+              value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000",
+            },
+          ],
+        },
+        {
+          source: "/fonts/:path*",
+          headers: [
+            {
+              key: "Cache-Control",
+              value: "public, max-age=31536000, immutable",
+            },
+          ],
+        },
+        // /sitemap.xml and /robots.txt — let Cloudflare cache for an hour so
+        // crawlers can hammer them without hitting the origin every time.
+        {
+          source: "/sitemap.xml",
+          headers: [
+            {
+              key: "Cache-Control",
+              value: "public, max-age=300, s-maxage=3600",
+            },
+          ],
+        },
+        {
+          source: "/robots.txt",
+          headers: [
+            {
+              key: "Cache-Control",
+              value: "public, max-age=300, s-maxage=3600",
             },
           ],
         },

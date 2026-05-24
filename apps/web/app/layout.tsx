@@ -13,6 +13,8 @@ import "../styles/globals.css";
 import { AppRouterI18nProvider } from "./AppRouterI18nProvider";
 import { Providers } from "./providers";
 import { SpeculationRules } from "./SpeculationRules";
+import { TrimlyAnalytics } from "./_components/TrimlyAnalytics";
+import process from "node:process";
 
 const interFont = Inter({ subsets: ["latin"], variable: "--font-sans", preload: true, display: "swap" });
 const calFont = localFont({
@@ -116,8 +118,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head nonce={nonce}>
         <style>{`
           :root {
-            --font-sans: ${interFont.style.fontFamily.replace(/\'/g, "")};
-            --font-cal: ${calFont.style.fontFamily.replace(/\'/g, "")};
+            --font-sans: ${interFont.style.fontFamily.replace(/'/g, "")};
+            --font-cal: ${calFont.style.fontFamily.replace(/'/g, "")};
           }
         `}</style>
         {process.env.NODE_ENV === "development" && (
@@ -165,6 +167,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {children}
           </AppRouterI18nProvider>
         </Providers>
+        {/*
+          Google Analytics / Tag Manager. Renders nothing unless NEXT_PUBLIC_GA_ID
+          or NEXT_PUBLIC_GTM_ID is set, so dev/preview environments stay silent.
+          Mounted at the bottom of <body> so it never blocks first paint.
+        */}
+        <TrimlyAnalytics />
       </body>
     </html>
   );

@@ -11,7 +11,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 import { SERVICE_CATALOG, formatKES } from "@lib/trimly/pricing";
-import { buildLocalBusinessJsonLd, buildServiceJsonLd } from "@lib/trimly/seo";
+import { buildBreadcrumbJsonLd, buildLocalBusinessJsonLd, buildServiceJsonLd } from "@lib/trimly/seo";
 import type { ServiceSlug } from "@lib/trimly/types";
 import process from "node:process";
 
@@ -49,7 +49,15 @@ export default async function ServicePage({ params }: PageProps) {
   const service = SERVICE_CATALOG[slug as ServiceSlug];
   if (!service) notFound();
 
-  const jsonLd = [buildLocalBusinessJsonLd(), buildServiceJsonLd(slug as ServiceSlug)];
+  const jsonLd = [
+    buildLocalBusinessJsonLd(),
+    buildServiceJsonLd(slug as ServiceSlug),
+    buildBreadcrumbJsonLd([
+      ["Home", "/"],
+      ["Services", "/services"],
+      [service.name, `/services/${slug}`],
+    ]),
+  ];
 
   return (
     <>

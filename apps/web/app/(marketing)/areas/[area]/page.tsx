@@ -16,7 +16,7 @@ import {
   neighborhoodsByCity,
 } from "@lib/trimly/neighborhoods";
 import { SERVICE_CATALOG, formatKES } from "@lib/trimly/pricing";
-import { buildAreaJsonLd, buildLocalBusinessJsonLd } from "@lib/trimly/seo";
+import { buildAreaJsonLd, buildBreadcrumbJsonLd, buildLocalBusinessJsonLd } from "@lib/trimly/seo";
 import process from "node:process";
 
 const SITE = process.env.NEXT_PUBLIC_WEBAPP_URL ?? "https://trimly.co.ke";
@@ -57,7 +57,15 @@ export default async function AreaPage({ params }: PageProps) {
   const n = findNeighborhoodBySlug(area);
   if (!n) notFound();
 
-  const jsonLd = [buildLocalBusinessJsonLd(), buildAreaJsonLd(area)];
+  const jsonLd = [
+    buildLocalBusinessJsonLd(),
+    buildAreaJsonLd(area),
+    buildBreadcrumbJsonLd([
+      ["Home", "/"],
+      ["Areas", "/areas"],
+      [`${n.name}, ${n.city}`, `/areas/${area}`],
+    ]),
+  ];
   const isStandard = n.tier === "standard";
   const tierLabel = isStandard ? "Standard pricing" : "Travel-premium pricing";
   const tierEyebrow = isStandard ? "Home base · Standard rate" : "Travel visit · Premium rate";
