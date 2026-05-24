@@ -13,6 +13,7 @@ import type { Metadata } from "next";
 import { SERVICE_CATALOG, formatKES } from "@lib/trimly/pricing";
 import { buildLocalBusinessJsonLd, buildServiceJsonLd } from "@lib/trimly/seo";
 import type { ServiceSlug } from "@lib/trimly/types";
+import process from "node:process";
 
 const SITE = process.env.NEXT_PUBLIC_WEBAPP_URL ?? "https://trimly.co.ke";
 
@@ -57,24 +58,6 @@ export default async function ServicePage({ params }: PageProps) {
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-
-      <header className="t-header is-scrolled">
-        <div className="t-header__inner">
-          <Link href="/" className="t-wordmark">
-            Trim<em>ly</em>
-          </Link>
-          <nav className="t-nav" aria-label="Primary">
-            <Link href="/#services">Services</Link>
-            <Link href="/#subscriptions">Pricing</Link>
-            <Link href="/#areas">Areas</Link>
-          </nav>
-          <div className="t-header__cta">
-            <Link href="/book" className="t-btn t-btn--primary">
-              Book a cut
-            </Link>
-          </div>
-        </div>
-      </header>
 
       <main className="t-section t-container" style={{ paddingTop: 140 }}>
         <p className="t-eyebrow t-eyebrow--accent" style={{ marginBottom: 16 }}>

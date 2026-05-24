@@ -47,9 +47,14 @@ export function MobileMenu({ isLoggedIn, isOperator }: { isLoggedIn: boolean; is
             <Link href="/areas" onClick={() => setOpen(false)}>Areas</Link>
             <Link href="/stories" onClick={() => setOpen(false)}>Stories</Link>
             {isLoggedIn ? (
-              <Link href={isOperator ? "/event-types" : "/account"} onClick={() => setOpen(false)}>
-                Dashboard
-              </Link>
+              <>
+                <Link href={isOperator ? "/event-types" : "/account"} onClick={() => setOpen(false)}>
+                  Dashboard
+                </Link>
+                <Link href="/api/auth/signout" onClick={() => setOpen(false)}>
+                  Sign out
+                </Link>
+              </>
             ) : (
               <Link href="/login" onClick={() => setOpen(false)}>Login</Link>
             )}

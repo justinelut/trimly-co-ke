@@ -1,12 +1,16 @@
 /**
- * AccountHeader — top chrome + tab bar shared by every /account/* page.
+ * AccountHeader — greeting + tab bar shared by every /account/* page.
+ *
+ * The site-wide chrome (wordmark / nav / theme toggle / sign-out) lives in
+ * the (marketing) layout via <SiteHeader/>. This component is just the
+ * dashboard greeting and the per-account tab strip — it must NOT render
+ * its own <header> element or we'd stack two on top of each other.
+ *
  * Server component; the active-tab styling comes from the `current` prop
  * passed by each page (so the page's URL drives the highlight, no
  * client-side routing needed).
  */
 import Link from "next/link";
-
-import { ThemeToggle } from "../../_components/ThemeToggle";
 
 type TabKey = "upcoming" | "past" | "subscription" | "profile" | "payment-methods";
 
@@ -27,25 +31,6 @@ export function AccountHeader({ customerName, current }: AccountHeaderProps) {
   const firstName = customerName.split(/\s+/)[0];
   return (
     <>
-      <header className="t-header is-scrolled">
-        <div className="t-header__inner">
-          <Link href="/" className="t-wordmark">
-            Trim<em>ly</em>
-          </Link>
-          <nav className="t-nav" aria-label="Primary">
-            <Link href="/#services">Services</Link>
-            <Link href="/#subscriptions">Pricing</Link>
-            <Link href="/book">Book a cut</Link>
-          </nav>
-          <div className="t-header__cta">
-            <ThemeToggle />
-            <Link href="/api/auth/signout" className="t-btn t-btn--secondary" style={{ padding: "8px 16px", fontSize: 13 }}>
-              Sign out
-            </Link>
-          </div>
-        </div>
-      </header>
-
       <div className="t-dash__head">
         <div className="t-dash__greeting">
           <p className="t-eyebrow">Your account</p>

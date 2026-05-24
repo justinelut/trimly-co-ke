@@ -8,6 +8,7 @@ import { buildLegacyRequest } from "@lib/buildLegacyCtx";
 import { MobileMenu } from "./MobileMenu";
 import { ScrollHeader } from "./ScrollHeader";
 import { ThemeToggle } from "./ThemeToggle";
+import process from "node:process";
 
 function parseOperatorEmails(): Set<string> {
   return new Set(
@@ -37,7 +38,10 @@ export async function SiteHeader() {
         <Link href="/areas">Areas</Link>
         <Link href="/stories">Stories</Link>
         {isLoggedIn ? (
-          <Link href={isOperator ? "/event-types" : "/account"}>Dashboard</Link>
+          <>
+            <Link href={isOperator ? "/event-types" : "/account"}>Dashboard</Link>
+            <Link href="/api/auth/signout">Sign out</Link>
+          </>
         ) : (
           <Link href="/login">Login</Link>
         )}
