@@ -470,12 +470,20 @@ const beforeFiles = [
         // hashed-or-stable assets that very rarely change, so we tell CF to
         // cache them for a year. Next.js's own /_next/static/* already has
         // immutable caching baked in by Next; we don't override that.
+        //
+        // CDN-Cache-Control is a separate directive Cloudflare honours
+        // independently of Cache-Control — useful when you want browsers
+        // to revalidate sooner than the edge does. We send both.
         {
           source: "/img/:path*",
           headers: [
             {
               key: "Cache-Control",
               value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000",
+            },
+            {
+              key: "CDN-Cache-Control",
+              value: "max-age=2592000",
             },
           ],
         },
@@ -486,16 +494,38 @@ const beforeFiles = [
               key: "Cache-Control",
               value: "public, max-age=31536000, immutable",
             },
+            {
+              key: "CDN-Cache-Control",
+              value: "max-age=31536000",
+            },
           ],
         },
-        // /sitemap.xml and /robots.txt — let Cloudflare cache for an hour so
+        // Hashed Next.js static bundles — already immutable; reinforce CDN-side.
+        {
+          source: "/_next/static/:path*",
+          headers: [
+            {
+              key: "Cache-Control",
+              value: "public, max-age=31536000, immutable",
+            },
+            {
+              key: "CDN-Cache-Control",
+              value: "max-age=31536000",
+            },
+          ],
+        },
+        // /sitemap.xml and /robots.txt — let Cloudflare cache for a day so
         // crawlers can hammer them without hitting the origin every time.
         {
           source: "/sitemap.xml",
           headers: [
             {
               key: "Cache-Control",
-              value: "public, max-age=300, s-maxage=3600",
+              value: "public, max-age=300, s-maxage=3600, stale-while-revalidate=3600",
+            },
+            {
+              key: "CDN-Cache-Control",
+              value: "max-age=86400",
             },
           ],
         },
@@ -505,6 +535,10 @@ const beforeFiles = [
             {
               key: "Cache-Control",
               value: "public, max-age=300, s-maxage=3600",
+            },
+            {
+              key: "CDN-Cache-Control",
+              value: "max-age=604800",
             },
           ],
         },

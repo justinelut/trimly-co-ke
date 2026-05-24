@@ -158,6 +158,49 @@ export function buildAreaJsonLd(slug: string) {
 
 
 /**
+ * Organization schema — sits alongside HairSalon/LocalBusiness on the
+ * homepage so Google can attach the brand to the entity graph (knowledge
+ * panel candidates, sitelinks, brand-name search results). The HairSalon
+ * node is the rich, location-bound entity; this Organization node is the
+ * lightweight "brand" overlay that ties it together with social profiles.
+ */
+export function buildOrganizationJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": `${SITE}/#organization`,
+    name: "Trimly",
+    legalName: "Trimly Co.",
+    url: SITE,
+    logo: `${SITE}/img/logo.png`,
+    description:
+      "Premium house-call barber for Nakuru and Nairobi. Booked to your home. M-Pesa or card.",
+    foundingLocation: {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Nakuru",
+        addressCountry: "KE",
+      },
+    },
+    sameAs: [
+      "https://instagram.com/trimly.co.ke",
+      // Add Twitter / Facebook / LinkedIn here when those profiles exist.
+    ],
+    contactPoint: [
+      {
+        "@type": "ContactPoint",
+        contactType: "customer service",
+        telephone: TELEPHONE,
+        email: "hello@trimly.co.ke",
+        areaServed: ["KE"],
+        availableLanguage: ["en", "sw"],
+      },
+    ],
+  } as const;
+}
+
+/**
  * FAQ schema for the homepage's FAQ section. Google may surface the answers
  * directly in search results as rich snippets — only the questions/answers
  * actually rendered on the page should be included here, or you'll get a

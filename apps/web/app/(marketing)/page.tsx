@@ -17,7 +17,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
 
 import { buildLegacyRequest } from "@lib/buildLegacyCtx";
-import { buildFaqJsonLd, buildLocalBusinessJsonLd } from "@lib/trimly/seo";
+import { buildFaqJsonLd, buildLocalBusinessJsonLd, buildOrganizationJsonLd } from "@lib/trimly/seo";
 
 import { BillingToggle } from "./_components/BillingToggle";
 import { PlanCardCTA } from "./_components/PlanCardCTA";
@@ -47,9 +47,14 @@ export default async function MarketingPage() {
   });
 
   // Inline JSON-LD: every marketing page benefits from the global
-  // LocalBusiness node, and the homepage in particular gets FAQPage so
-  // Google can surface the FAQ answers as rich snippets in search results.
-  const homepageJsonLd = [buildLocalBusinessJsonLd(), buildFaqJsonLd()];
+  // LocalBusiness node, and the homepage in particular gets Organization +
+  // FAQPage so Google can surface brand metadata and FAQ answers as rich
+  // snippets in search results.
+  const homepageJsonLd = [
+    buildLocalBusinessJsonLd(),
+    buildOrganizationJsonLd(),
+    buildFaqJsonLd(),
+  ];
 
   return (
     <>

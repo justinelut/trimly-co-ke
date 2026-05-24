@@ -78,6 +78,12 @@ export const metadata = {
     index: true,
     follow: true,
   },
+  verification: {
+    // Search Console domain verification token. Set NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    // in the env (k8s secret) to the value Google gives you in the HTML-tag
+    // verification flow. When unset, the meta tag isn't rendered.
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+  },
 };
 
 const getInitialProps = async () => {
