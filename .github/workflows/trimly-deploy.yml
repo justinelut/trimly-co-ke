@@ -69,11 +69,20 @@ jobs:
           IMAGE_TAG: ${{ steps.tag.outputs.tag }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Public NEXT_PUBLIC_* values are inlined into the JS bundle at
+          # build time, so they have to flow through here as build-args.
+          # Falsy/empty -> the bundle treats the var as absent (no GA, no
+          # GTM, no verification meta), which is the right behaviour for
+          # preview / no-key environments.
+          NEXT_PUBLIC_GA_ID: ${{ vars.NEXT_PUBLIC_GA_ID }}
+          NEXT_PUBLIC_GTM_ID: ${{ vars.NEXT_PUBLIC_GTM_ID }}
+          NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }}
+          TRIMLY_WHATSAPP_NUMBER: ${{ vars.TRIMLY_WHATSAPP_NUMBER }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: IMAGE_TAG,GHCR_USER,GHCR_TOKEN
+          envs: IMAGE_TAG,GHCR_USER,GHCR_TOKEN,NEXT_PUBLIC_GA_ID,NEXT_PUBLIC_GTM_ID,NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,TRIMLY_WHATSAPP_NUMBER
           command_timeout: 30m
           script: |
             set -e
@@ -104,6 +113,10 @@ jobs:
               --build-arg CALENDSO_ENCRYPTION_KEY=build_time_encryption_key_32chr \
               --build-arg CALCOM_TELEMETRY_DISABLED=1 \
               --build-arg MAX_OLD_SPACE_SIZE=6144 \
+              --build-arg "NEXT_PUBLIC_GA_ID=${NEXT_PUBLIC_GA_ID}" \
+              --build-arg "NEXT_PUBLIC_GTM_ID=${NEXT_PUBLIC_GTM_ID}" \
+              --build-arg "NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=${NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION}" \
+              --build-arg "TRIMLY_WHATSAPP_NUMBER=${TRIMLY_WHATSAPP_NUMBER}" \
               -t ghcr.io/justinelut/trimly-co-ke:${IMAGE_TAG} \
               -t ghcr.io/justinelut/trimly-co-ke:latest \
               -f Dockerfile .

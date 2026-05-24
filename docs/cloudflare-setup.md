@@ -5,90 +5,83 @@ Putting Cloudflare's free CDN in front of it gives you free DDoS protection,
 free SSL termination at the edge, and — most usefully — page caching for
 the marketing pages so the origin only sees a fraction of traffic.
 
-This doc is the **operator runbook**. Every step is done by hand once, in
-the Cloudflare dashboard. There's no Terraform / IaC for this — the steps
-below are intentionally short so you can follow them without cross-checking.
+This doc is the **operator runbook**. The steps below the **"Already done
+via API"** marker have been applied automatically using the Zone Settings
+API token in `~/.bashrc` (`CLOUDFLARE_API_TOKEN`). The remaining steps need
+the dashboard because the token doesn't have `Rulesets:Edit` permission.
 
 The application code already does the half that has to live in code:
 
-- `apps/web/next.config.ts` sends `Cache-Control: public, max-age=86400,
-  s-maxage=604800, stale-while-revalidate=2592000` for `/img/*` so
-  Cloudflare caches images at the edge for a week.
-- `/fonts/*` get `public, max-age=31536000, immutable`.
-- `/sitemap.xml` and `/robots.txt` get `public, max-age=300, s-maxage=3600`.
+- `apps/web/next.config.ts` sends both `Cache-Control` and `CDN-Cache-Control`
+  headers for static assets (`/img/*`, `/fonts/*`, `/_next/static/*`,
+  `/sitemap.xml`, `/robots.txt`). `CDN-Cache-Control` is honoured by
+  Cloudflare independently of `Cache-Control`, so we cache aggressively at
+  the edge while letting browsers revalidate sooner.
 - Every authenticated route already returns `private, no-cache, no-store,
   max-age=0, must-revalidate` (cal.diy default), so Cloudflare will never
-  cache logged-in HTML.
+  cache logged-in HTML even if the Cache Rule below isn't applied yet.
 
-You only need to do the steps below the first time, plus the cache-purge
-when you ship a new image / asset version.
+## 1. Add the zone — DONE
 
-## 1. Add the zone
+Zone `trimly.co.ke` is on Cloudflare Free, status `active`,
+zone_id `abd8507d0d4c4955105f38d5fdc4ecb6`.
 
-1. Sign in at <https://dash.cloudflare.com>.
-2. **Add a Site** → enter `trimly.co.ke` → pick the **Free** plan.
-3. Cloudflare scans the existing DNS records. Confirm the `A`/`AAAA` records
-   for the apex and `www` are pointing at the K3s server's public IP, and
-   that the orange cloud (proxy) is **on** for both.
-4. Cloudflare gives you two nameservers (e.g. `kira.ns.cloudflare.com`,
-   `walt.ns.cloudflare.com`). Update the nameservers at your registrar
-   (Truehost / Safaricom / wherever the domain was bought). Propagation is
-   usually under an hour but can take up to 24h.
+## 2. SSL / TLS — DONE via API
 
-## 2. SSL / TLS
+Already applied with the `CLOUDFLARE_API_TOKEN` (Zone Settings:Edit):
 
-In the dashboard:
+| setting                    | value    |
+|----------------------------|----------|
+| ssl                        | strict   |
+| always_use_https           | on       |
+| automatic_https_rewrites   | on       |
+| min_tls_version            | 1.2      |
+| tls_1_3                    | on       |
+| opportunistic_encryption   | on       |
+| brotli                     | on       |
+| early_hints                | on       |
+| http3                      | on       |
+| rocket_loader              | off      |
+| browser_cache_ttl          | 0 (Respect Existing Headers) |
+| security_level             | medium   |
 
-1. **SSL/TLS → Overview** → set to **Full (strict)**. The K3s ingress already
-   serves valid Let's Encrypt certs at the origin, so "Flexible" would
-   actually downgrade end-to-end security. Use "Full (strict)".
-2. **SSL/TLS → Edge Certificates**:
-   - **Always Use HTTPS** → On.
-   - **Automatic HTTPS Rewrites** → On.
-   - **Minimum TLS Version** → 1.2.
-   - **TLS 1.3** → On.
-   - **HSTS** → enable, max-age 6 months to start, include subdomains, no
-     preload yet (turn preload on after a month of clean operation).
+Re-run with the snippet at the end of this file if you ever need to reset.
 
-## 3. Caching rules
+## 3. Caching rules — STILL MANUAL
 
-The defaults are too cautious for a marketing site. Open
-**Caching → Cache Rules** and add:
+The Zone Settings API token doesn't have `Rulesets:Edit`. Either elevate the
+token (Account → API Tokens → edit, add **Zone › Rulesets › Edit**), or
+apply these two rules in the dashboard at **Caching → Cache Rules**:
 
-### Rule 1 — cache HTML for the marketing pages
+### Rule 1 — bypass cache for authenticated and API routes
+
+- **Name**: `Bypass cache for app routes`
+- **If incoming requests match** URI Path matches one of:
+  `/account/*`, `/api/*`, `/auth/*`, `/event-types`, `/event-types/*`,
+  `/availability`, `/availability/*`, `/bookings`, `/bookings/*`,
+  `/booking/*`, `/settings/*`, `/video/*`
+- **Then**: Eligible for cache: **No**
+
+### Rule 2 — cache marketing HTML at the edge for 1 hour
 
 - **Name**: `Cache marketing HTML`
 - **If incoming requests match**:
-  - Hostname equals `trimly.co.ke`
-  - **AND** URI Path matches one of:
-    `/`, `/services`, `/services/*`, `/areas`, `/areas/*`, `/pricing`,
-    `/stories`, `/legal/*`
+  - URI Path matches one of: `/`, `/services`, `/services/*`, `/areas`,
+    `/areas/*`, `/pricing`, `/stories`, `/legal/*`
 - **Then**:
   - Eligible for cache: **Yes**
   - Edge TTL: **Override origin → 1 hour**
   - Browser TTL: **Respect existing headers**
 
-This caches public marketing HTML at the edge for an hour. The origin's
-own `Cache-Control` headers still apply to logged-in routes, which sit
-under different paths (`/account/*`, `/event-types`, etc.), so they're
-never accidentally cached.
+Order matters in Cache Rules — Rule 1 (bypass) must be **above** Rule 2 in
+the list, because Cache Rules short-circuit on first match.
 
-### Rule 2 — never cache anything authenticated or API
+## 4. Performance niceties — DONE via API
 
-- **Name**: `Bypass cache for app routes`
-- **If incoming requests match** URI Path matches one of:
-  `/account/*`, `/api/*`, `/auth/*`, `/event-types`, `/event-types/*`,
-  `/availability`, `/availability/*`, `/bookings/*`, `/settings/*`, `/booking/*`
-- **Then**: Eligible for cache: **No**
+Brotli, Early Hints, HTTP/3, Rocket Loader off, Min TLS 1.2 — all set.
 
-Order matters in Cache Rules — drag this rule **above** Rule 1 in the list.
+Two extras that aren't API-controllable, do them in the dashboard once:
 
-## 4. Performance niceties
-
-- **Speed → Optimization → Content Optimization**:
-  - **Auto Minify** (HTML/CSS/JS): On
-  - **Brotli**: On
-  - **Early Hints**: On (free, helps Core Web Vitals on the marketing pages)
 - **Speed → Optimization → Image Optimization**:
   - **Polish**: Lossy (free for the apex domain)
   - **WebP** is included with Polish.
@@ -96,7 +89,7 @@ Order matters in Cache Rules — drag this rule **above** Rule 1 in the list.
     `next.config.ts` has `images.unoptimized = true` because the static export
     runs in a Docker image with no sharp binary, so Polish is a useful belt
     on top of that.
-- **Network → HTTP/2**: On (default), **HTTP/3 (QUIC)**: On.
+- **Network → 0-RTT Connection Resumption**: On (free, helps repeat visits).
 
 ## 5. Page Rules — single redirect
 
@@ -166,3 +159,36 @@ You should see `cf-cache-status: HIT` on the second request to a public
 marketing route, and `cf-cache-status: BYPASS` on the response from
 `/account/upcoming` after logging in. If you see HIT on an authenticated
 route, the bypass rule is misconfigured — fix it before anything else.
+
+
+## Appendix — re-apply zone settings via API
+
+The token stored at `~/.bashrc` as `CLOUDFLARE_API_TOKEN` covers Zone Settings.
+Run this any time you need to reset the settings to the documented baseline:
+
+```bash
+CF_TOKEN=$(bash -c 'eval "$(grep "^export CLOUDFLARE_API_TOKEN=" ~/.bashrc)"; echo "$CLOUDFLARE_API_TOKEN"')
+ZONE="abd8507d0d4c4955105f38d5fdc4ecb6"
+CF="https://api.cloudflare.com/client/v4/zones/$ZONE"
+
+apply() {
+  curl -s -X PATCH "$CF/settings/$1" \
+    -H "Authorization: Bearer $CF_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$2" \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); print('  $1:', d['result']['value'] if d.get('success') else d.get('errors'))"
+}
+
+apply ssl                       '{"value":"strict"}'
+apply always_use_https          '{"value":"on"}'
+apply automatic_https_rewrites  '{"value":"on"}'
+apply min_tls_version           '{"value":"1.2"}'
+apply tls_1_3                   '{"value":"on"}'
+apply opportunistic_encryption  '{"value":"on"}'
+apply brotli                    '{"value":"on"}'
+apply early_hints               '{"value":"on"}'
+apply http3                     '{"value":"on"}'
+apply rocket_loader             '{"value":"off"}'
+apply browser_cache_ttl         '{"value":0}'
+apply security_level            '{"value":"medium"}'
+```
