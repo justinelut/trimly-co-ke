@@ -172,6 +172,16 @@ CREATE TABLE IF NOT EXISTS "public"."TrimlyWebhookEvent" (
     "processedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "TrimlyWebhookEvent_pkey" PRIMARY KEY ("id")
 );
+
+-- Re-seed Trimly plans defensively. The seed migration ran ONCE on the
+-- original deploy; if the table is wiped (TRIMLY_FORCE_RESET_DB) it stays
+-- empty because Prisma still has the seed migration recorded as applied.
+-- ON CONFLICT (slug) DO NOTHING makes this safe to re-run on every boot.
+INSERT INTO "public"."TrimlyPlan" (id, slug, name, "cutsPerMonth", "priceKES", "intervalMonths", "isActive") VALUES
+  ('plan_starter',   'starter',   'Starter',   2, 3200, 1, true),
+  ('plan_regular',   'regular',   'Regular',   4, 5600, 1, true),
+  ('plan_executive', 'executive', 'Executive', 4, 7800, 1, true)
+ON CONFLICT (slug) DO NOTHING;
 SQL
 echo "==> Pre-flight repair complete"
 

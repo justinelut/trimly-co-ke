@@ -20,6 +20,7 @@ import { buildLegacyRequest } from "@lib/buildLegacyCtx";
 import { buildFaqJsonLd, buildLocalBusinessJsonLd } from "@lib/trimly/seo";
 
 import { BillingToggle } from "./_components/BillingToggle";
+import { PlanCardCTA } from "./_components/PlanCardCTA";
 
 export const metadata = {
   title: "Trimly — Premium house-call barber. Nakuru. Nairobi by appointment.",
@@ -704,12 +705,7 @@ function PlanCard({
           <li key={f}>{f}</li>
         ))}
       </ul>
-      <Link
-        href={`/account/subscription?plan=${slug}&billing=monthly`}
-        className={`t-btn t-btn--${ctaVariant} t-plan__cta`}
-        style={{ width: "100%", justifyContent: "center" }}>
-        {ctaLabel}
-      </Link>
+      <PlanCardCTA slug={slug} label={ctaLabel} variant={ctaVariant} />
     </div>
   );
 }

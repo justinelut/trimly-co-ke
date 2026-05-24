@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BillingToggle } from "../_components/BillingToggle";
+import { PlanCardCTA } from "../_components/PlanCardCTA";
 
 export const metadata: Metadata = {
   title: "Pricing — Trimly | Premium house-call barber in Nakuru & Nairobi",
@@ -228,11 +229,7 @@ function PlanCard({
           <li key={f}>{f}</li>
         ))}
       </ul>
-      <Link
-        href={`/account/subscription?plan=${slug}`}
-        className={`t-btn t-btn--${ctaVariant} t-plan__cta`}>
-        {ctaLabel}
-      </Link>
+      <PlanCardCTA slug={slug} label={ctaLabel} variant={ctaVariant} />
     </div>
   );
 }
