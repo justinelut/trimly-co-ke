@@ -2606,3 +2606,96 @@
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
+
+
+/* =============================================================================
+ * Mobile sticky CTA (Call / WhatsApp / Book)
+ *
+ * Bottom-fixed bar shown only on phones (<768px) — the highest-intent surface
+ * for a barber site where most traffic is a one-tap-to-WhatsApp gesture. Three
+ * buttons sized for thumb reach, with iOS safe-area inset. Hidden on desktop
+ * (the SiteHeader already has the primary "Book a cut" CTA up top).
+ * ========================================================================== */
+[data-trimly-theme] .t-mobile-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: none;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in oklab, var(--t-bg, #0c0c0c) 92%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-top: 1px solid color-mix(in oklab, var(--t-fg, #f5f1ea) 14%, transparent);
+}
+
+@media (max-width: 767.98px) {
+  [data-trimly-theme] .t-mobile-cta {
+    display: grid;
+  }
+  /* Push page content up enough that nothing is hidden behind the bar */
+  [data-trimly-theme] body {
+    padding-bottom: 76px;
+  }
+}
+
+[data-trimly-theme] .t-mobile-cta__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 52px;
+  border-radius: 12px;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  text-decoration: none;
+  transition: transform 120ms ease, opacity 120ms ease, background 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+[data-trimly-theme] .t-mobile-cta__btn:active {
+  transform: scale(0.97);
+}
+[data-trimly-theme] .t-mobile-cta__btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* Call — neutral, secondary feel */
+[data-trimly-theme] .t-mobile-cta__btn--call {
+  background: color-mix(in oklab, var(--t-fg, #f5f1ea) 12%, transparent);
+  color: var(--t-fg, #f5f1ea);
+}
+[data-trimly-theme] .t-mobile-cta__btn--call:hover {
+  background: color-mix(in oklab, var(--t-fg, #f5f1ea) 18%, transparent);
+}
+
+/* WhatsApp — brand green, the one most Kenyan customers reach for first */
+[data-trimly-theme] .t-mobile-cta__btn--whatsapp {
+  background: #25d366;
+  color: #062b1a;
+}
+[data-trimly-theme] .t-mobile-cta__btn--whatsapp:hover {
+  background: #20bf5a;
+}
+
+/* Book — primary brand action */
+[data-trimly-theme] .t-mobile-cta__btn--book {
+  background: var(--t-fg, #f5f1ea);
+  color: var(--t-bg, #0c0c0c);
+}
+[data-trimly-theme] .t-mobile-cta__btn--book:hover {
+  background: color-mix(in oklab, var(--t-fg, #f5f1ea) 92%, var(--t-bg, #0c0c0c));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-trimly-theme] .t-mobile-cta {
+    animation: none !important;
+    transition: none !important;
+  }
+}
