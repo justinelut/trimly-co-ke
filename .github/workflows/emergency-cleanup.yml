@@ -80,6 +80,20 @@ jobs:
             sudo kubectl -n trimly-co-ke rollout restart deployment/trimly-co-ke-deployment 2>/dev/null
 
             echo
+            echo "==> Seed TrimlyPlan + Paystack (idempotent, via psql into DB pod)"
+            sleep 15
+            DB_POD=$(sudo kubectl -n trimly-co-ke get pods -l app=trimly-co-ke,component=postgres --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+            if [ -n "$DB_POD" ]; then
+              sudo kubectl -n trimly-co-ke exec "$DB_POD" -- psql -U trimly-co-ke -d trimly-co-ke_db -c "CREATE TABLE IF NOT EXISTS \"TrimlyPlan\" (id TEXT PRIMARY KEY, slug TEXT UNIQUE NOT NULL, name TEXT NOT NULL, \"cutsPerMonth\" INTEGER NOT NULL, \"priceKES\" INTEGER NOT NULL, \"intervalMonths\" INTEGER NOT NULL DEFAULT 1, \"paystackPlanCode\" TEXT, \"isActive\" BOOLEAN NOT NULL DEFAULT true);" 2>&1 || true
+              sudo kubectl -n trimly-co-ke exec "$DB_POD" -- psql -U trimly-co-ke -d trimly-co-ke_db -c "INSERT INTO \"TrimlyPlan\" (id, slug, name, \"cutsPerMonth\", \"priceKES\", \"intervalMonths\", \"isActive\") VALUES ('plan_starter','starter','Starter',2,3200,1,true) ON CONFLICT (slug) DO NOTHING;" 2>&1 || true
+              sudo kubectl -n trimly-co-ke exec "$DB_POD" -- psql -U trimly-co-ke -d trimly-co-ke_db -c "INSERT INTO \"TrimlyPlan\" (id, slug, name, \"cutsPerMonth\", \"priceKES\", \"intervalMonths\", \"isActive\") VALUES ('plan_regular','regular','Regular',4,5600,1,true) ON CONFLICT (slug) DO NOTHING;" 2>&1 || true
+              sudo kubectl -n trimly-co-ke exec "$DB_POD" -- psql -U trimly-co-ke -d trimly-co-ke_db -c "INSERT INTO \"TrimlyPlan\" (id, slug, name, \"cutsPerMonth\", \"priceKES\", \"intervalMonths\", \"isActive\") VALUES ('plan_executive','executive','Executive',4,7800,1,true) ON CONFLICT (slug) DO NOTHING;" 2>&1 || true
+              sudo kubectl -n trimly-co-ke exec "$DB_POD" -- psql -U trimly-co-ke -d trimly-co-ke_db -c "SELECT id, slug, name FROM \"TrimlyPlan\";" 2>&1
+            else
+              echo "DB pod not running yet"
+            fi
+
+            echo
             echo "==> Final state"
             df -h / | tail -1
             echo
