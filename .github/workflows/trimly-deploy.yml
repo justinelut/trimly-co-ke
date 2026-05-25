@@ -388,6 +388,23 @@ jobs:
 
             echo "✅ Deployed ghcr.io/justinelut/trimly-co-ke:${IMAGE_TAG}"
 
+            # Post-rollout: seed TrimlyPlan + Paystack app rows (idempotent).
+            # Uses psql directly against the db pod — bypasses prisma's
+            # migration-state check which blocks db execute when there are
+            # failed migration records.
+            echo "==> Post-rollout seed (idempotent)"
+            DB_POD=$(sudo kubectl -n "$NS" get pods -l app=trimly-co-ke,component=postgres --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+            if [ -n "$DB_POD" ]; then
+              sudo kubectl -n "$NS" exec -i "$DB_POD" -- psql -U trimly-co-ke -d trimly-co-ke_db -c "UPDATE \"_prisma_migrations\" SET \"finished_at\" = NOW(), \"applied_steps_count\" = 1, \"rolled_back_at\" = NULL WHERE \"finished_at\" IS NULL OR \"rolled_back_at\" IS NOT NULL;" 2>/dev/null || true
+              sudo kubectl -n "$NS" exec -i "$DB_POD" -- psql -U trimly-co-ke -d trimly-co-ke_db -c "CREATE TABLE IF NOT EXISTS \"TrimlyPlan\" (id TEXT PRIMARY KEY, slug TEXT UNIQUE NOT NULL, name TEXT NOT NULL, \"cutsPerMonth\" INTEGER NOT NULL, \"priceKES\" INTEGER NOT NULL, \"intervalMonths\" INTEGER NOT NULL DEFAULT 1, \"paystackPlanCode\" TEXT, \"isActive\" BOOLEAN NOT NULL DEFAULT true); INSERT INTO \"TrimlyPlan\" (id, slug, name, \"cutsPerMonth\", \"priceKES\", \"intervalMonths\", \"isActive\") VALUES ('plan_starter','starter','Starter',2,3200,1,true),('plan_regular','regular','Regular',4,5600,1,true),('plan_executive','executive','Executive',4,7800,1,true) ON CONFLICT (slug) DO NOTHING;" \
+                && echo "==> Plans seeded" || echo "==> Plan seed failed (non-critical)"
+              sudo kubectl -n "$NS" exec -i "$DB_POD" -- psql -U trimly-co-ke -d trimly-co-ke_db -c "INSERT INTO \"App\" (slug, \"dirName\", keys, categories, \"createdAt\", \"updatedAt\", enabled) VALUES ('paystack','paystackpayment','{\"secret_key\":\"\",\"public_key\":\"\"}',ARRAY['payment']::\"AppCategories\"[],NOW(),NOW(),true) ON CONFLICT (slug) DO NOTHING;" 2>/dev/null || true
+              sudo kubectl -n "$NS" exec -i "$DB_POD" -- psql -U trimly-co-ke -d trimly-co-ke_db -c "INSERT INTO \"Credential\" (type, key, \"appId\") SELECT 'paystack_payment', '{}'::jsonb, 'paystack' WHERE NOT EXISTS (SELECT 1 FROM \"Credential\" WHERE type = 'paystack_payment' AND \"appId\" = 'paystack');" 2>/dev/null || true
+              echo "==> Seed complete"
+            else
+              echo "==> No running DB pod found, skipping seed"
+            fi
+
       - name: Summary
         if: always()
         run: |
