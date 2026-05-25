@@ -173,6 +173,87 @@ jobs:
             sudo mkdir -p /opt/trimly-co-ke/k8s
             sudo chown -R ubuntu:ubuntu /opt/trimly-co-ke
 
+      # ---------------------------------------------------------------
+      # Free node resources before scheduling the new pods. Two failure
+      # modes this guards against, both of which we hit in production:
+      #
+      #   1. DiskPressure taint. The K3s node is the SAME box that runs
+      #      `docker build` for our image (see the build job above), and
+      #      every workflow run leaves another ~5–10 GB of intermediate
+      #      layers in /var/lib/docker. Once the disk crosses ~85 % full,
+      #      kubelet auto-applies node.kubernetes.io/disk-pressure:NoSchedule
+      #      and EVERY pod (including db, minio, deployment, cronjobs)
+      #      goes Pending until the disk drops below the eviction
+      #      threshold. The taint is auto-removed once that happens.
+      #
+      #   2. Stuck pods from previous failed rollouts (Error /
+      #      ContainerStatusUnknown / Pending forever) hold the
+      #      ReplicaSet's quota. Garbage-collecting them frees that
+      #      headroom and lets the next rollout fit.
+      #
+      # All operations are safe to run on every deploy — `prune` and
+      # `--prune` flavours never touch images currently referenced by
+      # running containers, and the pod deletion explicitly scopes to
+      # phases that are already terminated.
+      # ---------------------------------------------------------------
+      - name: Free node resources (prune Docker, k3s images, stuck pods)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 8m
+          script: |
+            set +e
+
+            echo "==> Pre-clean disk state"
+            df -h / | tail -1
+
+            echo "==> Prune Docker (images >2h old, dangling builders, stopped containers, unused volumes)"
+            sudo docker container prune -f >/dev/null 2>&1
+            sudo docker image prune -af --filter "until=2h" >/dev/null 2>&1
+            sudo docker builder prune -af --filter "until=2h" >/dev/null 2>&1
+            sudo docker volume prune -f >/dev/null 2>&1
+            sudo docker network prune -f >/dev/null 2>&1
+
+            echo "==> Prune k3s containerd images (separate cache from Docker)"
+            sudo k3s crictl rmi --prune >/dev/null 2>&1
+
+            echo "==> Vacuum journald + apt logs"
+            sudo journalctl --vacuum-time=2d >/dev/null 2>&1
+            sudo find /var/log -type f -name "*.gz" -mtime +3 -delete 2>/dev/null || true
+            sudo find /var/log -type f \( -name "*.1" -o -name "*.old" \) -delete 2>/dev/null || true
+
+            echo "==> Post-clean disk state"
+            df -h / | tail -1
+
+            echo "==> Garbage-collect terminated pods (Failed / Succeeded / Error)"
+            sudo kubectl -n trimly-co-ke delete pod \
+              --field-selector=status.phase=Failed --ignore-not-found 2>/dev/null
+            sudo kubectl -n trimly-co-ke delete pod \
+              --field-selector=status.phase=Succeeded --ignore-not-found 2>/dev/null
+            # Force-delete any pod stuck in non-Running state for >10m
+            sudo kubectl -n trimly-co-ke get pods --no-headers 2>/dev/null \
+              | awk '$3 != "Running" && $3 != "Completed" && $3 != "Pending" {print $1}' \
+              | xargs -r -n1 sudo kubectl -n trimly-co-ke delete pod --force --grace-period=0 --ignore-not-found 2>/dev/null
+
+            echo "==> Wait up to 60s for kubelet to clear DiskPressure / MemoryPressure taints"
+            for i in $(seq 1 12); do
+              taints=$(sudo kubectl get node -o jsonpath='{.items[*].spec.taints[*].key}' 2>/dev/null)
+              if ! echo "$taints" | grep -qE "(disk-pressure|memory-pressure|pid-pressure)"; then
+                echo "Node taints look clean: ${taints:-<none>}"
+                break
+              fi
+              echo "Still tainted ($taints) — waiting 5s ($i/12)"
+              sleep 5
+            done
+
+            echo "==> Final node state"
+            sudo kubectl describe node | grep -E "^Taints:|DiskPressure|MemoryPressure|PIDPressure" | head -10
+
+            # Always exit 0 — best-effort cleanup never blocks the deploy.
+            exit 0
+
       - name: Copy k8s manifests + env file to server
         uses: appleboy/scp-action@v0.1.7
         with:
