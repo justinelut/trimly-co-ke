@@ -185,8 +185,34 @@ ON CONFLICT (slug) DO NOTHING;
 SQL
 echo "==> Pre-flight repair complete"
 
+# ---- Resolve stuck/failed migration records --------------------------------
+# If TRIMLY_FORCE_RESET_DB or a previous crash left a migration in a
+# partially-applied state (finished_at IS NULL or rolled_back_at IS NOT NULL),
+# prisma migrate deploy AND prisma db execute both refuse to proceed. Since the
+# pre-flight SQL above already applied the schema idempotently, we can safely
+# mark any stuck records as complete so subsequent prisma commands work.
+echo "==> Resolving stuck migration records"
+npx prisma db execute --schema /calcom/prisma/schema.prisma --stdin <<'SQL' || echo "==> (resolve returned non-zero, continuing)"
+UPDATE "_prisma_migrations"
+SET "finished_at" = NOW(), "applied_steps_count" = 1, "rolled_back_at" = NULL
+WHERE "finished_at" IS NULL OR "rolled_back_at" IS NOT NULL;
+SQL
+
 npx prisma migrate deploy --schema /calcom/prisma/schema.prisma
 npx ts-node --transpile-only /calcom/scripts/seed-app-store.ts
+
+# ---- Seed Trimly plans (idempotent) ----------------------------------------
+# Runs AFTER migrate deploy so the TrimlyPlan table guaranteed exists (created
+# by the trimly_initial migration). Uses prisma db execute which now works
+# because we resolved stuck migration records above.
+echo "==> Seeding Trimly plans"
+npx prisma db execute --schema /calcom/prisma/schema.prisma --stdin <<'SQL' || echo "==> (plan seed non-zero, likely already seeded)"
+INSERT INTO "TrimlyPlan" (id, slug, name, "cutsPerMonth", "priceKES", "intervalMonths", "isActive") VALUES
+  ('plan_starter',   'starter',   'Starter',   2, 3200, 1, true),
+  ('plan_regular',   'regular',   'Regular',   4, 5600, 1, true),
+  ('plan_executive', 'executive', 'Executive', 4, 7800, 1, true)
+ON CONFLICT (slug) DO NOTHING;
+SQL
 
 # NOTE: no admin user seeding here. The first admin is created via cal.diy's
 # built-in setup wizard at /auth/setup on first boot of an empty DB.
