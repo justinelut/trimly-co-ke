@@ -1,0 +1,90 @@
+name: Emergency Cleanup
+
+# Manually-dispatched workflow to free K3s node resources without redeploying.
+# Use when prod is 503ing because pods are stuck Pending with FailedScheduling
+# 'untolerated taint(s)' (disk-pressure / memory-pressure). Runs in ~1 minute,
+# never builds an image, never changes the deployment — only frees space and
+# kicks the kubelet so it auto-clears the node-pressure taints.
+#
+# Trigger:  gh workflow run emergency-cleanup.yml
+# Or via dashboard: Actions → Emergency Cleanup → Run workflow.
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: cleanup-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Free K3s node resources
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH cleanup
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 8m
+          script: |
+            set +e
+
+            echo "==> Pre-clean disk state"
+            df -h / | tail -1
+
+            echo "==> Pre-clean node taints + pressure conditions"
+            sudo kubectl describe node | grep -E "^Taints:|DiskPressure|MemoryPressure|PIDPressure" | head -10
+
+            echo
+            echo "==> Prune Docker (older than 2h, never the running image)"
+            sudo docker container prune -f >/dev/null 2>&1
+            sudo docker image prune -af --filter "until=2h" >/dev/null 2>&1
+            sudo docker builder prune -af --filter "until=2h" >/dev/null 2>&1
+            sudo docker volume prune -f >/dev/null 2>&1
+            sudo docker network prune -f >/dev/null 2>&1
+
+            echo "==> Prune k3s containerd images (Docker prune doesn't reach this)"
+            sudo k3s crictl rmi --prune >/dev/null 2>&1
+
+            echo "==> Vacuum journald + old /var/log"
+            sudo journalctl --vacuum-time=2d >/dev/null 2>&1
+            sudo find /var/log -type f -name "*.gz" -mtime +3 -delete 2>/dev/null
+            sudo find /var/log -type f \( -name "*.1" -o -name "*.old" \) -delete 2>/dev/null
+
+            echo
+            echo "==> Garbage-collect terminated pods (Failed / Succeeded / Error / Unknown)"
+            sudo kubectl -n trimly-co-ke delete pod --field-selector=status.phase=Failed --ignore-not-found 2>/dev/null
+            sudo kubectl -n trimly-co-ke delete pod --field-selector=status.phase=Succeeded --ignore-not-found 2>/dev/null
+            sudo kubectl -n trimly-co-ke get pods --no-headers 2>/dev/null \
+              | awk '$3 == "Error" || $3 == "ContainerStatusUnknown" || $3 == "CrashLoopBackOff" {print $1}' \
+              | xargs -r -n1 sudo kubectl -n trimly-co-ke delete pod --force --grace-period=0 --ignore-not-found 2>/dev/null
+
+            echo
+            echo "==> Wait up to 90s for kubelet to drop pressure taints"
+            for i in $(seq 1 18); do
+              taints=$(sudo kubectl get node -o jsonpath='{.items[*].spec.taints[*].key}' 2>/dev/null)
+              if ! echo "$taints" | grep -qE "(disk-pressure|memory-pressure|pid-pressure)"; then
+                echo "Taints clean after ${i}x5s: ${taints:-<none>}"
+                break
+              fi
+              echo "Still tainted ($taints) — waiting 5s ($i/18)"
+              sleep 5
+            done
+
+            echo
+            echo "==> Restart core workloads so they resume scheduling"
+            sudo kubectl -n trimly-co-ke rollout restart statefulset/trimly-co-ke-db 2>/dev/null
+            sudo kubectl -n trimly-co-ke rollout restart statefulset/trimly-co-ke-minio 2>/dev/null
+            sudo kubectl -n trimly-co-ke rollout restart deployment/trimly-co-ke-deployment 2>/dev/null
+
+            echo
+            echo "==> Final state"
+            df -h / | tail -1
+            echo
+            sudo kubectl describe node | grep -E "^Taints:|DiskPressure|MemoryPressure|PIDPressure" | head -10
+            echo
+            sudo kubectl -n trimly-co-ke get pods 2>/dev/null
+
+            exit 0
