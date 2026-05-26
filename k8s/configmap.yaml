@@ -49,5 +49,6 @@ data:
   GOOGLE_LOGIN_ENABLED: "true"
 
   # ---- Public Paystack key (intentionally public; safe to expose to the browser) ----
-  # The secret PAYSTACK_SECRET_KEY stays in trimly-co-ke-secret.
-  NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: "pk_live_REPLACE_ME"
+  # Lives in the Secret alongside PAYSTACK_SECRET_KEY so all Paystack config
+  # is in one place. Do NOT duplicate here or the placeholder will override
+  # the real value from the Secret.
