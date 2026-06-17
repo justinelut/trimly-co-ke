@@ -1,0 +1,44 @@
+name: Destroy All
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DESTROY to confirm'
+        required: true
+
+jobs:
+  destroy:
+    name: Destroy trimly-co-ke from VPS
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'DESTROY'
+    steps:
+      - name: SSH and nuke everything
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 10m
+          script: |
+            set +e
+            echo "=== DESTROYING trimly-co-ke ==="
+
+            # Delete the entire K8s namespace (takes all deployments, services,
+            # statefulsets, secrets, configmaps, ingresses, cronjobs, PVCs with it)
+            sudo kubectl delete namespace trimly-co-ke --ignore-not-found --timeout=120s
+            echo "==> Namespace deleted"
+
+            # Remove all Docker images related to trimly
+            sudo docker images --format '{{.Repository}}:{{.Tag}}' | grep -i trimly | xargs -r sudo docker rmi -f
+            sudo docker system prune -af --volumes
+            echo "==> Docker images purged"
+
+            # Remove the source code / build artifacts on the server
+            sudo rm -rf /opt/trimly-co-ke
+            echo "==> /opt/trimly-co-ke removed"
+
+            # Remove any k3s containerd images
+            sudo k3s crictl rmi --prune 2>/dev/null || true
+
+            echo "=== DONE — trimly-co-ke completely removed from this server ==="
